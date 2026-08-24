@@ -114,6 +114,8 @@ const soft = computed(() => {
     // ---------- mihomo 内核侧 ----------
     coreUpgrade: mihomoOrForkCore,
     coreRestart: mihomoOrForkCore,
+    // 面板自升级 /upgrade/ui。honk 没有任何 /upgrade* 路由。
+    dashboardUpgrade: mihomoOrForkCore,
     reloadConfigs: mihomoOrForkCore,
     updateConfigs: mihomoOrForkCore,
     updateGeoDatabase: mihomoOrForkCore,
@@ -143,6 +145,10 @@ const soft = computed(() => {
     extraLogLevels: singbox,
     // silent:mihomo 与 sing-box 有,honk 没有
     silentLogLevel: mihomo || singbox,
+    // ---------- honk 内核侧 ----------
+    // GET /stats:honk 独有的用户态运行时快照。方向与上面那批相反,
+    // 故不接 displayAllFeatures —— 那个开关说的是「我的 fork 也支持 mihomo 扩展」。
+    runtimeStats: honk,
   }
 })
 

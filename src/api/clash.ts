@@ -4,11 +4,11 @@
 //   1. 通用         —— 三种方言都提供
 //   2. mihomo 专属  —— mihomo(含 smart 分支)的扩展端点,sing-box 与 honk 没有
 //   3. sing-box 的 Clash 兼容 API 专属 —— 仅 sing-box 提供的端点
-// honk 实现的是通用分区的子集(没有 /upgrade/ui),故不单列分区,差异见能力表。
+//   4. honk 附加    —— honk 相对 mihomo 增加的端点
 // sing-box API(gRPC)是另一条通道,不在这里,见 api/singbox/。
 //
-// 新增端点时请放进对应分区。是否向用户暴露由 assembly/backend.ts 的能力表决定,
-// 本层不做任何后端判断。
+// 兼容实现未覆盖的 mihomo 标准端点视为能力不足,由 assembly/backend.ts
+// 的能力表记录。本层只按来源归类请求,不做任何后端判断。
 import type { ProbeResult } from '@/helper/connectivity'
 import { getUrlFromBackend } from '@/helper/utils'
 import { activeBackend } from '@/store/setup'
@@ -16,6 +16,7 @@ import type {
   Backend,
   Config,
   DNSQuery,
+  HonkStats,
   NodeRank,
   Proxy,
   ProxyProvider,
@@ -28,7 +29,7 @@ import ReconnectingWebSocket from 'reconnectingwebsocket'
 import { shallowRef } from 'vue'
 
 // ==========================================================================
-// 两方言共用
+// mihomo 标准
 // ==========================================================================
 
 export const fetchClashVersion = () => axios.get<{ version: string }>('/version')
@@ -142,11 +143,6 @@ export const queryDNSAPI = (params: { name: string; type: string }) => {
   })
 }
 
-// 面板自升级。mihomo 与 sing-box 的 Clash 兼容 API 都提供,honk 没有(见 dashboardUpgrade)。
-export const upgradeUIAPI = () => {
-  return axios.post('/upgrade/ui')
-}
-
 export const createClashWebSocket = <T>(url: string, searchParams?: Record<string, string>) => {
   const backend = activeBackend.value!
   const resurl = new URL(`${getUrlFromBackend(backend).replace('http', 'ws')}/${url}`)
@@ -255,10 +251,6 @@ export const toggleRuleDisabledAPI = (data: Record<number, boolean>) => {
   return axios.patch(`/rules/disable`, data)
 }
 
-export const blockConnectionByIdAPI = (id: string) => {
-  return axios.delete(`/connections/smart/${id}`)
-}
-
 export const reloadConfigsAPI = () => {
   return axios.put('/configs?reload=true', { path: '', payload: '' })
 }
@@ -287,7 +279,12 @@ export const restartCoreAPI = () => {
   return axios.post('/restart')
 }
 
-// 面板设置同步。/storage/zashboard 是 mihomo 扩展。
+// 面板自升级是 mihomo 标准能力;honk 虽可加载 zashboard,但未提供此端点。
+export const upgradeUIAPI = () => {
+  return axios.post('/upgrade/ui')
+}
+
+// 面板设置同步。/storage/zashboard 是 mihomo 标准扩展。
 export const getStorageAPI = () => {
   return axios.get<Record<string, unknown>>(`/storage/zashboard`)
 }
@@ -299,6 +296,34 @@ export const setStorageAPI = (value: Record<string, string>) => {
 export const deleteStorageAPI = () => {
   return axios.delete(`/storage/zashboard`)
 }
+
+// ==========================================================================
+// smart 附加(相对 mihomo 标准)
+// ==========================================================================
+
+// smart 内核的节点权重。是否暴露由数据决定(proxy.type === 'smart'),不走能力表。
+export const fetchSmartWeightsAPI = () => {
+  return axios.get<{
+    message: string
+    weights: Record<string, NodeRank[]>
+  }>(`/group/weights`)
+}
+
+export const flushSmartGroupWeightsAPI = () => {
+  return axios.post(`/cache/smart/flush`)
+}
+
+export const blockConnectionByIdAPI = (id: string) => {
+  return axios.delete(`/connections/smart/${id}`)
+}
+
+// ==========================================================================
+// honk 附加(相对 mihomo 标准)
+// ==========================================================================
+
+// honk 的用户态运行时快照:outbound 计数、就绪池、warm 资源、TCP/UDP/NFQUEUE
+// 计量与 Score 选路原因。没有 WS,只能轮询。
+export const fetchHonkStatsAPI = () => axios.get<HonkStats>('/stats')
 
 // ==========================================================================
 // sing-box 的 Clash 兼容 API 专属

@@ -193,3 +193,18 @@ export interface NodeRank {
   Rank: string
   Weight: number
 }
+
+// honk core —— GET /stats 的用户态运行时快照。
+// 该端点还会返回就绪池 / warm 资源 / TCP / Score / UDP-NFQUEUE 等内部计量
+// (完整 schema 见 honk 仓库 doc/en/reference/api.md 的「GET /stats」一节),
+// 面板只取其中的出站统计,故这里只声明用得到的部分。
+export type HonkStats = {
+  outbounds: {
+    name: string
+    totalConns: number
+    activeConns: number
+    upload: number
+    download: number
+    errors: number
+  }[]
+}

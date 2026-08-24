@@ -180,7 +180,6 @@ export const resetProxies = async () => {
 
 // 代理集 / smart 权重动作(Clash 专属),经 proxies 域门面暴露给 view 与 store/smart。
 export {
-  fetchSmartGroupWeightsAPI,
   fetchSmartWeightsAPI,
   flushSmartGroupWeightsAPI,
   proxyProviderHealthCheckAPI,
