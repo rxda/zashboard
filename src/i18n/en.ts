@@ -200,6 +200,7 @@ const en = {
   restartCoreSuccess: 'Core restarted successfully',
   reloadConfigsSuccess: 'Configs reloaded successfully',
   updateGeoSuccess: 'Geo database updated successfully',
+  actionRunning: '{action}...',
   chains: 'Chains',
   outbound: 'Outbound',
   proxyGroup: 'Proxy group',

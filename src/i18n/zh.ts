@@ -201,6 +201,7 @@ const zh: LANG_MESSAGE = {
   restartCoreSuccess: '核心重启成功',
   reloadConfigsSuccess: '配置重载成功',
   updateGeoSuccess: 'GEO数据库更新成功',
+  actionRunning: '{action}执行中…',
   chains: '代理链',
   outbound: '出站节点',
   proxyGroup: '策略组',

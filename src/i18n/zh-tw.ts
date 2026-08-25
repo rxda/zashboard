@@ -201,6 +201,7 @@ const zhTW: LANG_MESSAGE = {
   restartCoreSuccess: '核心重啟成功',
   reloadConfigsSuccess: '配置重載成功',
   updateGeoSuccess: 'GEO資料庫更新成功',
+  actionRunning: '{action}執行中…',
   chains: '代理鏈',
   outbound: '出站節點',
   proxyGroup: '策略組',
