@@ -561,6 +561,7 @@ const ru: LANG_MESSAGE = {
   topologyCharts: 'Топологические графики',
   earthGlobeCard: 'Глобальные подключения',
   earthGlobeTitle: 'Глобальные подключения',
+  earthProjection: 'Проекция',
   earthVisualStyle: 'Стиль глобуса',
   earthVisualStyle_space: 'Космос',
   earthVisualStyle_flat: 'Плоский',

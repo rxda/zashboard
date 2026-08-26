@@ -8,7 +8,17 @@
         {{ t('earthGlobeTitle') }}
       </div>
       <div class="flex items-center gap-1">
+        <SegmentedControl
+          :title="t('earthProjection')"
+          :model-value="earthProjection"
+          :options="[
+            { value: '3d', label: '3D' },
+            { value: '2d', label: '2D' },
+          ]"
+          @update:model-value="earthProjection = $event as '3d' | '2d'"
+        />
         <SelectInput
+          v-if="!isFlatMap"
           v-model="earthVisualMode"
           class="select select-ghost select-sm h-8 min-h-8 w-auto border-0"
           :aria-label="t('earthVisualStyle')"
@@ -31,6 +41,7 @@
           />
         </button>
         <button
+          v-if="!isFlatMap"
           class="btn btn-ghost btn-sm btn-square"
           :aria-label="t(rotationPaused ? 'earthResumeRotation' : 'earthPauseRotation')"
           :title="t(rotationPaused ? 'earthResumeRotation' : 'earthPauseRotation')"
@@ -67,10 +78,7 @@
 
     <div
       class="relative mt-2 w-full overflow-hidden rounded-xl"
-      :class="[
-        expanded ? 'min-h-0 flex-1' : 'h-96',
-        earthVisualMode === 'flat' ? 'bg-base-200/30' : 'bg-black',
-      ]"
+      :class="[expanded ? 'min-h-0 flex-1' : 'h-96', flatLook ? 'bg-base-200/30' : 'bg-black']"
     >
       <div
         ref="canvasRef"
@@ -122,11 +130,11 @@
 
       <div
         class="absolute bottom-2 left-2 flex flex-col items-start gap-0.5 text-[10px]"
-        :class="earthVisualMode === 'flat' ? 'text-base-content/55' : 'text-white/65'"
+        :class="flatLook ? 'text-base-content/55' : 'text-white/65'"
       >
         <a
           class="hover:underline"
-          :class="earthVisualMode === 'flat' ? 'hover:text-base-content' : 'hover:text-white'"
+          :class="flatLook ? 'hover:text-base-content' : 'hover:text-white'"
           href="https://db-ip.com/db/lite.php"
           target="_blank"
           rel="noopener noreferrer"
@@ -135,7 +143,7 @@
         </a>
         <a
           class="hover:underline"
-          :class="earthVisualMode === 'flat' ? 'hover:text-base-content' : 'hover:text-white'"
+          :class="flatLook ? 'hover:text-base-content' : 'hover:text-white'"
           href="https://www.solarsystemscope.com/textures/"
           target="_blank"
           rel="noopener noreferrer"
@@ -304,6 +312,7 @@
 </template>
 
 <script setup lang="ts">
+import SegmentedControl from '@/components/common/SegmentedControl.vue'
 import SelectInput from '@/components/common/SelectInput.vue'
 import { getPublicIPInfo, type IPInfo } from '@/api/geoip'
 import { getCachedPublicIPInfo } from '@/composables/overview'
@@ -311,7 +320,7 @@ import { IP_INFO_API } from '@/constant'
 import { themeColorScheme } from '@/helper/theme'
 import { prettyBytesHelper } from '@/helper/utils'
 import { activeConnections } from '@/store/connections'
-import { earthIPInfoAPI, earthVisualMode, language, theme } from '@/store/settings'
+import { earthIPInfoAPI, earthProjection, earthVisualMode, language, theme } from '@/store/settings'
 import {
   ArrowPathIcon,
   ArrowsPointingInIcon,
@@ -395,6 +404,11 @@ const maskIP = (value: string) => {
   const parts = address.toNormalizedString().split(':')
   return `${parts[0]}:${parts[1]}:****:****`
 }
+
+const isFlatMap = computed(() => earthProjection.value === '2d')
+// The 2D map always uses the flat palette, so it shares the light chrome that
+// the flat globe style uses.
+const flatLook = computed(() => isFlatMap.value || earthVisualMode.value === 'flat')
 
 const displayedOriginIP = computed(() => {
   if (originStatus.value === 'loading') return t('getting')
@@ -639,6 +653,7 @@ watch(language, () => {
   scheduleRouteRefresh()
 })
 watch(reducedMotion, (value) => renderer.value?.setReducedMotion(value))
+watch(earthProjection, (value) => renderer.value?.setProjection(value))
 watch(earthVisualMode, (value) => renderer.value?.setVisualMode(value))
 watch(
   theme,
@@ -665,6 +680,7 @@ const initialize = async () => {
     if (!canvasRef.value || disposed) return
     const createdRenderer = await createEarthRenderer(canvasRef.value, {
       reducedMotion: reducedMotion.value,
+      projection: earthProjection.value,
       visualMode: earthVisualMode.value,
       colorScheme: themeColorScheme.value,
       onEndpointHover: handleEndpointHover,

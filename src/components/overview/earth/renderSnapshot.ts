@@ -1,4 +1,4 @@
-import { ENDPOINT_RADIUS, toEarthVector } from './earthMath'
+import * as THREE from 'three/webgpu'
 import type { EarthRenderEndpoint, EarthRenderSnapshot } from './rendererTypes'
 import type { EarthHostTraffic, EarthRoute } from './types'
 
@@ -42,7 +42,11 @@ export const createEarthRenderSnapshot = (incomingRoutes: readonly EarthRoute[])
           role: point.role,
           connections: route.connections,
           topHosts: point.role === 'destination' ? [...route.topHosts] : [],
-          position: toEarthVector(point).multiplyScalar(ENDPOINT_RADIUS),
+          latitude: point.latitude,
+          longitude: point.longitude,
+          // The snapshot stays projection-agnostic; `endpointLayer` fills this in
+          // for whichever projection is active.
+          position: new THREE.Vector3(),
         })
       }
     }

@@ -547,6 +547,7 @@ const zh: LANG_MESSAGE = {
   topologyCharts: '拓扑图表',
   earthGlobeCard: '全球连接',
   earthGlobeTitle: '全球连接',
+  earthProjection: '投影方式',
   earthVisualStyle: '地球样式',
   earthVisualStyle_space: '星空',
   earthVisualStyle_flat: '扁平',

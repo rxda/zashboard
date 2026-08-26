@@ -558,6 +558,7 @@ const en = {
   topologyCharts: 'Topology charts',
   earthGlobeCard: 'Global connections',
   earthGlobeTitle: 'Global connections',
+  earthProjection: 'Projection',
   earthVisualStyle: 'Globe style',
   earthVisualStyle_space: 'Space',
   earthVisualStyle_flat: 'Flat',
