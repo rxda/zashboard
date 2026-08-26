@@ -11,8 +11,11 @@ const FLOW_STREAK_LENGTH = 0.14
 const FLOW_STREAK_SEGMENTS = 14
 const FLOW_COLOR = new THREE.Color('#ffffff')
 const FLAT_LIGHT_FLOW_COLOR = new THREE.Color('#5ad9ef')
+const DIRECT_FLOW_COLOR = new THREE.Color('#ff9f43')
 const LINE_ORIGIN_COLOR = new THREE.Color('#b8f7ff')
 const LINE_DESTINATION_COLOR = new THREE.Color('#4f9dff')
+const DIRECT_LINE_ORIGIN_COLOR = new THREE.Color('#ffd09a')
+const DIRECT_LINE_DESTINATION_COLOR = new THREE.Color('#ff7a1a')
 
 interface RuntimeRoute {
   route: EarthRoute
@@ -128,9 +131,13 @@ export const createRouteLayer = (options: RouteLayerOptions): RouteLayer => {
     if (disposed || flowPositions.length === 0) return
 
     let flowSegmentIndex = 0
-    const flowColor = isFlatLook() && colorScheme === 'light' ? FLAT_LIGHT_FLOW_COLOR : FLOW_COLOR
-
     for (const runtime of runtimeRoutes) {
+      const flowColor = runtime.route.direct
+        ? DIRECT_FLOW_COLOR
+        : isFlatLook() && colorScheme === 'light'
+          ? FLAT_LIGHT_FLOW_COLOR
+          : FLOW_COLOR
+
       for (const direction of ['upload', 'download'] as const) {
         const rate = runtime.route[direction]
         const progressKey = `${runtime.route.key}:${direction}`
@@ -211,6 +218,8 @@ export const createRouteLayer = (options: RouteLayerOptions): RouteLayer => {
       }
 
       const lastIndex = routePoints.length - 1
+      const originColor = route.direct ? DIRECT_LINE_ORIGIN_COLOR : LINE_ORIGIN_COLOR
+      const destinationColor = route.direct ? DIRECT_LINE_DESTINATION_COLOR : LINE_DESTINATION_COLOR
 
       for (let pointIndex = 0; pointIndex < lastIndex; pointIndex += 1) {
         const start = routePoints[pointIndex]
@@ -219,12 +228,12 @@ export const createRouteLayer = (options: RouteLayerOptions): RouteLayer => {
         const endProgress = (pointIndex + 1) / lastIndex
         positions.push(start.x, start.y, start.z, end.x, end.y, end.z)
         colors.push(
-          THREE.MathUtils.lerp(LINE_ORIGIN_COLOR.r, LINE_DESTINATION_COLOR.r, startProgress),
-          THREE.MathUtils.lerp(LINE_ORIGIN_COLOR.g, LINE_DESTINATION_COLOR.g, startProgress),
-          THREE.MathUtils.lerp(LINE_ORIGIN_COLOR.b, LINE_DESTINATION_COLOR.b, startProgress),
-          THREE.MathUtils.lerp(LINE_ORIGIN_COLOR.r, LINE_DESTINATION_COLOR.r, endProgress),
-          THREE.MathUtils.lerp(LINE_ORIGIN_COLOR.g, LINE_DESTINATION_COLOR.g, endProgress),
-          THREE.MathUtils.lerp(LINE_ORIGIN_COLOR.b, LINE_DESTINATION_COLOR.b, endProgress),
+          THREE.MathUtils.lerp(originColor.r, destinationColor.r, startProgress),
+          THREE.MathUtils.lerp(originColor.g, destinationColor.g, startProgress),
+          THREE.MathUtils.lerp(originColor.b, destinationColor.b, startProgress),
+          THREE.MathUtils.lerp(originColor.r, destinationColor.r, endProgress),
+          THREE.MathUtils.lerp(originColor.g, destinationColor.g, endProgress),
+          THREE.MathUtils.lerp(originColor.b, destinationColor.b, endProgress),
         )
       }
 

@@ -213,6 +213,7 @@ export const connectionAccessor: ConnectionAccessor = {
   },
   sniffHost: (connection) => asSingbox(connection).domain,
   remoteAddress: (connection) => asSingbox(connection).destination,
+  isDirect: (connection) => asSingbox(connection).outboundType.toLowerCase() === 'direct',
   protocol: (connection) => asSingbox(connection).protocol,
   outboundType: (connection) => asSingbox(connection).outboundType,
   fromOutbound: (connection) => asSingbox(connection).fromOutbound,

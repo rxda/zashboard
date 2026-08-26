@@ -19,7 +19,7 @@ export const createEarthRenderSnapshot = (incomingRoutes: readonly EarthRoute[])
     .map(cloneRoute)
     .sort((left, right) => left.key.localeCompare(right.key))
   const signature = routes
-    .map(({ key }) => key)
+    .map(({ direct, key }) => `${key}:${direct ? 'direct' : 'proxy'}`)
     .sort()
     .join('|')
   const endpoints = new Map<string, EarthRenderEndpoint>()
@@ -30,6 +30,7 @@ export const createEarthRenderSnapshot = (incomingRoutes: readonly EarthRoute[])
       const existing = endpoints.get(key)
 
       if (existing) {
+        existing.direct &&= route.direct
         existing.connections += route.connections
         if (point.role === 'destination') {
           existing.topHosts = mergeTopHosts(existing.topHosts, route.topHosts)
@@ -37,6 +38,7 @@ export const createEarthRenderSnapshot = (incomingRoutes: readonly EarthRoute[])
       } else {
         endpoints.set(key, {
           key,
+          direct: route.direct,
           city: point.city,
           country: point.country,
           role: point.role,

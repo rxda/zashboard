@@ -26,6 +26,8 @@ const ROLE_GLOW_COLORS = {
   origin: new THREE.Color('#a9e9ff'),
   destination: new THREE.Color('#3fa8ff'),
 } as const
+const DIRECT_COLOR = new THREE.Color('#ff9f43')
+const DIRECT_GLOW_COLOR = new THREE.Color('#ff7a1a')
 // The user's own location is the anchor of every arc, so it gets a slightly
 // wider bead and halo than the destinations radiating out of it.
 const ROLE_SCALES = {
@@ -168,8 +170,11 @@ export const createEndpointLayer = (options: EndpointLayerOptions): EndpointLaye
       matrix.compose(endpoint.position, endpointRotation, endpointScale.setScalar(scale))
       endpointMesh.setMatrixAt(index, matrix)
       endpointGlowMesh.setMatrixAt(index, matrix)
-      endpointMesh.setColorAt(index, ROLE_COLORS[endpoint.role])
-      endpointGlowMesh.setColorAt(index, ROLE_GLOW_COLORS[endpoint.role])
+      endpointMesh.setColorAt(index, endpoint.direct ? DIRECT_COLOR : ROLE_COLORS[endpoint.role])
+      endpointGlowMesh.setColorAt(
+        index,
+        endpoint.direct ? DIRECT_GLOW_COLOR : ROLE_GLOW_COLORS[endpoint.role],
+      )
     }
 
     endpointMesh.instanceMatrix.needsUpdate = true
@@ -200,6 +205,7 @@ export const createEndpointLayer = (options: EndpointLayerOptions): EndpointLaye
           if (next) {
             endpoint.city = next.city
             endpoint.country = next.country
+            endpoint.direct = next.direct
             endpoint.connections = next.connections
             endpoint.topHosts = next.topHosts.map((host) => ({ ...host }))
           }

@@ -27,6 +27,7 @@ export interface EarthRenderer {
 
 export interface EarthRenderEndpoint extends EarthEndpointInfo {
   key: string
+  direct: boolean
   latitude: number
   longitude: number
   position: THREE.Vector3

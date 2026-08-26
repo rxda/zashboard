@@ -37,6 +37,7 @@ export interface EarthHostTraffic {
 export interface EarthRoute {
   key: string
   path: Array<EarthLocation & { role: EarthEndpointRole }>
+  direct: boolean
   connections: number
   upload: number
   download: number
