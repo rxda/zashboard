@@ -2,10 +2,14 @@ import { disconnectAllAPI, disconnectByIdAPI } from '@/assembly/connections'
 import { useCtrlsBar } from '@/composables/useCtrlsBar'
 import {
   CONNECTION_GROUPABLE_KEYS,
+  naturalSortDirection,
   ROUTE_NAME,
   SETTINGS_MENU_KEY,
   SORT_DIRECTION,
+  SORT_DIRECTION_LABEL_KEY,
   SORT_TYPE,
+  SORT_TYPE_GROUPS,
+  SORT_TYPE_VALUE_KIND,
   type ConnectionGroupableKey,
 } from '@/constant'
 import { useTooltip } from '@/helper/tooltip'
@@ -68,26 +72,49 @@ export default defineComponent({
     const { showTip, updateTip } = useTooltip()
     const { isLargeCtrlsBar } = useCtrlsBar(() => (isConnectionCard.value ? 860 : 720))
 
+    // 「升序 / 降序」对不同字段含义完全不同,按字段类型说人话:文本 A → Z、
+    // 流量从大到小、时间最新在前。
+    const sortDirectionLabel = () =>
+      t(
+        SORT_DIRECTION_LABEL_KEY[SORT_TYPE_VALUE_KIND[connectionSortType.value]][
+          connectionSortDirection.value
+        ],
+      )
+
     return () => {
       const sortForCards = (
         <div class={`join flex-1 ${isLargeCtrlsBar.value ? 'min-w-46' : ''}`}>
           <SelectInput
             class="join-item select select-sm flex-1"
+            aria-label={t('sortBy')}
             modelValue={connectionSortType.value}
-            onUpdate:modelValue={(value) => (connectionSortType.value = value as SORT_TYPE)}
-            options={(Object.values(SORT_TYPE) as string[]).map((value) => ({
-              value,
-              label: t(value) || value,
-            }))}
+            onUpdate:modelValue={(value) => {
+              const sortType = value as SORT_TYPE
+
+              connectionSortType.value = sortType
+              // 换字段就落回该字段的自然方向,否则选完「下载速度」还停在升序,
+              // 顶上全是 0 B 的连接。
+              connectionSortDirection.value = naturalSortDirection(sortType)
+            }}
+            options={SORT_TYPE_GROUPS.flatMap((sortGroup) =>
+              sortGroup.types.map((value) => ({
+                value: value as string,
+                label: t(value) || value,
+                group: t(sortGroup.labelKey),
+              })),
+            )}
           />
           <button
             class="btn join-item btn-sm"
+            aria-label={sortDirectionLabel()}
             onClick={() => {
               connectionSortDirection.value =
                 connectionSortDirection.value === SORT_DIRECTION.ASC
                   ? SORT_DIRECTION.DESC
                   : SORT_DIRECTION.ASC
+              updateTip(sortDirectionLabel())
             }}
+            onMouseenter={(e) => showTip(e, sortDirectionLabel(), { appendTo: 'parent' })}
           >
             {connectionSortDirection.value === SORT_DIRECTION.ASC ? (
               <BarsArrowUpIcon class="h-4 w-4" />
