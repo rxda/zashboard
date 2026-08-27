@@ -1,107 +1,78 @@
 import type { IPInfo } from '@/api/geoip'
 import { LANG } from '@/constant'
+import { geoIPChunkStore, type GeoIPFileManifest } from '@/helper/geoipChunkStore'
+import { AsyncMMDBReader } from '@/helper/mmdb'
 import { geoipASNDatabaseURL, geoipCountryDatabaseURL, language } from '@/store/settings'
 import { watchDebounced } from '@vueuse/core'
-import { Buffer } from 'buffer'
 import * as ipaddr from 'ipaddr.js'
-import type { AsnResponse, CountryResponse, Reader } from 'mmdb-lib'
+import type { AsnResponse, CountryResponse } from 'mmdb-lib'
 import { reactive } from 'vue'
-
-// mmdb-lib relies on the global Buffer at module-eval time.
-if (!(globalThis as { Buffer?: unknown }).Buffer) {
-  ;(globalThis as { Buffer?: unknown }).Buffer = Buffer
-}
 
 /**
  * Local GeoIP lookup backed by GeoIP databases (Country for the country, ASN for
  * the autonomous system / organization).
  *
  * This module is loaded only while the connections page is showing GeoIP. Each
- * database is downloaded once from the CDN, cached in IndexedDB (which, unlike
- * the Cache API, also works over plain HTTP), and queried in the browser.
+ * database is downloaded once from the CDN and streamed into the shared GeoIP
+ * IndexedDB chunk store. Lookups only read the MMDB tree/data chunks they touch.
  */
-const GEOIP_IDB_NAME = 'zashboard-geoip'
-const GEOIP_IDB_STORE = 'mmdb'
 const GEOIP_DATABASE_TTL = 30 * 24 * 60 * 60 * 1000
-
-interface CachedGeoIPDatabase {
-  buffer: ArrayBuffer
-  updatedAt: number
-}
-
-const openGeoIPDB = (): Promise<IDBDatabase> =>
-  new Promise((resolve, reject) => {
-    const request = indexedDB.open(GEOIP_IDB_NAME, 1)
-
-    request.onupgradeneeded = () => {
-      request.result.createObjectStore(GEOIP_IDB_STORE)
-    }
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error)
-  })
-
-const readCachedDatabase = async (key: string): Promise<CachedGeoIPDatabase | undefined> => {
-  const db = await openGeoIPDB()
-
-  return new Promise((resolve, reject) => {
-    const request = db
-      .transaction(GEOIP_IDB_STORE, 'readonly')
-      .objectStore(GEOIP_IDB_STORE)
-      .get(key)
-
-    request.onsuccess = () => resolve(request.result as CachedGeoIPDatabase | undefined)
-    request.onerror = () => reject(request.error)
-  }).finally(() => db.close()) as Promise<CachedGeoIPDatabase | undefined>
-}
-
-const writeCachedDatabase = async (key: string, value: CachedGeoIPDatabase): Promise<void> => {
-  const db = await openGeoIPDB()
-
-  return new Promise<void>((resolve, reject) => {
-    const transaction = db.transaction(GEOIP_IDB_STORE, 'readwrite')
-
-    transaction.objectStore(GEOIP_IDB_STORE).put(value, key)
-    transaction.oncomplete = () => resolve()
-    transaction.onerror = () => reject(transaction.error)
-  }).finally(() => db.close())
-}
 
 type GeoIPResponse = CountryResponse | AsnResponse
 
-const loadReader = async (url: string): Promise<Reader<GeoIPResponse>> => {
-  let cached = await readCachedDatabase(url).catch(() => undefined)
+const openReader = <T extends GeoIPResponse>(key: string, manifest: GeoIPFileManifest) =>
+  AsyncMMDBReader.open<T>(geoIPChunkStore.createSource(key, manifest))
 
-  if (!cached || Date.now() - cached.updatedAt > GEOIP_DATABASE_TTL) {
+const loadReader = async (url: string): Promise<AsyncMMDBReader<GeoIPResponse>> => {
+  let cached = await geoIPChunkStore.getManifest(url).catch(() => undefined)
+  let staleReader: AsyncMMDBReader<GeoIPResponse> | undefined
+
+  if (cached) {
     try {
-      const response = await fetch(url)
+      staleReader = await openReader<GeoIPResponse>(url, cached)
 
-      if (!response.ok) {
-        throw new Error(`Failed to download GeoIP database: ${response.status}`)
-      }
-
-      cached = { buffer: await response.arrayBuffer(), updatedAt: Date.now() }
-      await writeCachedDatabase(url, cached).catch(() => {})
-    } catch (error) {
-      // Fall back to a stale cache when refreshing fails; only rethrow when we
-      // have nothing usable at all.
-      if (!cached) {
-        throw error
-      }
+      if (Date.now() - cached.updatedAt <= GEOIP_DATABASE_TTL) return staleReader
+    } catch {
+      await geoIPChunkStore.invalidate(url, cached.generation).catch(() => {})
+      cached = undefined
     }
   }
 
-  const { Reader } = await import('mmdb-lib')
+  try {
+    const response = await fetch(url)
 
-  return new Reader<GeoIPResponse>(Buffer.from(cached.buffer))
+    if (!response.ok || !response.body) {
+      throw new Error(`Failed to stream GeoIP database: ${response.status}`)
+    }
+
+    const staged = await geoIPChunkStore.stageStream(url, response.body)
+    let nextReader: AsyncMMDBReader<GeoIPResponse>
+
+    try {
+      nextReader = await openReader<GeoIPResponse>(url, staged)
+      // Country and ASN databases are small enough to retain one generation
+      // for another open tab that may still hold an older Reader.
+      await geoIPChunkStore.activate(url, staged, { retainPrevious: true })
+    } catch (error) {
+      await geoIPChunkStore.discard(url, staged.generation).catch(() => {})
+      throw error
+    }
+
+    return nextReader
+  } catch (error) {
+    // A validated stale generation remains usable until the replacement has
+    // been completely written, parsed and atomically activated.
+    if (staleReader) return staleReader
+    throw error
+  }
 }
 
-// Cap the in-memory reader cache. Normally only two databases (country + ASN)
-// are live at once; the headroom absorbs transient URL edits before the stale
-// entries are evicted (least-recently-used first).
-const GEOIP_READER_CACHE_MAX = 4
-const readerCache = new Map<string, Promise<Reader<GeoIPResponse>>>()
+// Only the active country + ASN readers stay reachable. Each reader has its own
+// bounded chunk cache, so stale URL edits cannot multiply the memory ceiling.
+const GEOIP_READER_CACHE_MAX = 2
+const readerCache = new Map<string, Promise<AsyncMMDBReader<GeoIPResponse>>>()
 
-const getReader = <T extends GeoIPResponse>(url: string): Promise<Reader<T>> => {
+const getReader = <T extends GeoIPResponse>(url: string): Promise<AsyncMMDBReader<T>> => {
   const cached = readerCache.get(url)
 
   if (cached) {
@@ -109,7 +80,7 @@ const getReader = <T extends GeoIPResponse>(url: string): Promise<Reader<T>> => 
     readerCache.delete(url)
     readerCache.set(url, cached)
 
-    return cached as Promise<Reader<T>>
+    return cached as Promise<AsyncMMDBReader<T>>
   }
 
   const reader = loadReader(url).catch((error) => {
@@ -131,7 +102,7 @@ const getReader = <T extends GeoIPResponse>(url: string): Promise<Reader<T>> => 
     readerCache.delete(oldest)
   }
 
-  return reader as Promise<Reader<T>>
+  return reader as Promise<AsyncMMDBReader<T>>
 }
 
 const localizedName = (names?: { en: string; 'zh-CN'?: string }): string => {
@@ -150,7 +121,7 @@ const lookup = async <T extends GeoIPResponse>(url: string, ip: string): Promise
   const reader = await getReader<T>(url)
 
   try {
-    return reader.get(ip)
+    return await reader.get(ip)
   } catch {
     return null
   }
