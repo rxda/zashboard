@@ -206,6 +206,8 @@ const zh: LANG_MESSAGE = {
   outbound: '出站节点',
   proxyGroup: '策略组',
   sortBy: '排序方式',
+  groupBy: '分组方式',
+  noGrouping: '不分组',
   rule: '规则',
   sourceIP: '源IP',
   activeConnections: '活跃',

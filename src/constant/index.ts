@@ -60,6 +60,30 @@ export enum CONNECTIONS_TABLE_ACCESSOR_KEY {
   FromOutbound = 'fromOutbound',
 }
 
+// 桌面表格与卡片列表共享同一份分组能力清单。分组字段必须有稳定、可读的离散值；
+// 操作列、时间、流量与瞬时速率只用于展示/排序，不参与分组。
+export const CONNECTION_GROUPABLE_KEYS = [
+  CONNECTIONS_TABLE_ACCESSOR_KEY.Type,
+  CONNECTIONS_TABLE_ACCESSOR_KEY.Process,
+  CONNECTIONS_TABLE_ACCESSOR_KEY.Host,
+  CONNECTIONS_TABLE_ACCESSOR_KEY.SniffHost,
+  CONNECTIONS_TABLE_ACCESSOR_KEY.Rule,
+  CONNECTIONS_TABLE_ACCESSOR_KEY.Chains,
+  CONNECTIONS_TABLE_ACCESSOR_KEY.Outbound,
+  CONNECTIONS_TABLE_ACCESSOR_KEY.SourceIP,
+  CONNECTIONS_TABLE_ACCESSOR_KEY.SourcePort,
+  CONNECTIONS_TABLE_ACCESSOR_KEY.Destination,
+  CONNECTIONS_TABLE_ACCESSOR_KEY.DestinationType,
+  CONNECTIONS_TABLE_ACCESSOR_KEY.GeoIP,
+  CONNECTIONS_TABLE_ACCESSOR_KEY.RemoteAddress,
+  CONNECTIONS_TABLE_ACCESSOR_KEY.InboundUser,
+] as const
+
+export type ConnectionGroupableKey = (typeof CONNECTION_GROUPABLE_KEYS)[number]
+
+export const isConnectionGroupableKey = (value: unknown): value is ConnectionGroupableKey =>
+  CONNECTION_GROUPABLE_KEYS.includes(value as ConnectionGroupableKey)
+
 export enum TABLE_WIDTH_MODE {
   AUTO = 'auto',
   MANUAL = 'manual',

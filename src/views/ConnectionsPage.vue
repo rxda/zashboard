@@ -22,6 +22,7 @@ import ConnectionTable from '@/components/connections/ConnectionTable.vue'
 import ConnectionCtrl from '@/components/controls/ConnectionCtrl.tsx'
 import { usePaddingForViews } from '@/composables/paddingViews'
 import { CONNECTIONS_TABLE_ACCESSOR_KEY } from '@/constant'
+import { connectionCardGroupKey } from '@/store/connections'
 import { connectionCardLines, connectionTableColumns, isConnectionCard } from '@/store/settings'
 import { computed, onScopeDispose, watch } from 'vue'
 
@@ -32,7 +33,8 @@ const { padding } = usePaddingForViews({
 
 const isGeoIPVisible = computed(() =>
   isConnectionCard.value
-    ? connectionCardLines.value.some((line) => line.includes(CONNECTIONS_TABLE_ACCESSOR_KEY.GeoIP))
+    ? connectionCardGroupKey.value === CONNECTIONS_TABLE_ACCESSOR_KEY.GeoIP ||
+      connectionCardLines.value.some((line) => line.includes(CONNECTIONS_TABLE_ACCESSOR_KEY.GeoIP))
     : connectionTableColumns.value.includes(CONNECTIONS_TABLE_ACCESSOR_KEY.GeoIP),
 )
 

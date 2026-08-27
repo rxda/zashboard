@@ -1,8 +1,16 @@
 import { disconnectAllAPI, disconnectByIdAPI } from '@/assembly/connections'
 import { useCtrlsBar } from '@/composables/useCtrlsBar'
-import { ROUTE_NAME, SETTINGS_MENU_KEY, SORT_DIRECTION, SORT_TYPE } from '@/constant'
+import {
+  CONNECTION_GROUPABLE_KEYS,
+  ROUTE_NAME,
+  SETTINGS_MENU_KEY,
+  SORT_DIRECTION,
+  SORT_TYPE,
+  type ConnectionGroupableKey,
+} from '@/constant'
 import { useTooltip } from '@/helper/tooltip'
 import {
+  connectionCardGroupKey,
   connectionFilter,
   connections,
   connectionSortDirection,
@@ -90,6 +98,23 @@ export default defineComponent({
         </div>
       )
 
+      const groupForCards = (
+        <SelectInput
+          class="select select-sm min-w-0 flex-1"
+          modelValue={connectionCardGroupKey.value}
+          onUpdate:modelValue={(value) =>
+            (connectionCardGroupKey.value = value as ConnectionGroupableKey | null)
+          }
+          options={[
+            { value: null, label: t('noGrouping') },
+            ...CONNECTION_GROUPABLE_KEYS.map((value) => ({
+              value,
+              label: t(value),
+            })),
+          ]}
+        />
+      )
+
       const settingsModal = (
         <>
           <button
@@ -104,6 +129,12 @@ export default defineComponent({
           >
             <div class="flex flex-col gap-3 text-sm">
               <div class="settings-grid">
+                {isConnectionCard.value && (
+                  <div class="setting-item">
+                    <div class="setting-item-label">{t('groupBy')}</div>
+                    {groupForCards}
+                  </div>
+                )}
                 <div class="setting-item">
                   <div class="setting-item-label shrink-0!">{t('hideConnectionRegex')}</div>
                   <TextInput
