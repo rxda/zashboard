@@ -561,6 +561,8 @@ const zh: LANG_MESSAGE = {
   earthExpand: '扩展地球画面',
   earthCollapse: '还原地球画面',
   earthConnectionLine: '连接线路',
+  earthLegend: '端点图例',
+  earthLegendProxied: '经代理',
   earthDatabaseChecking: '正在检查本地城市数据库…',
   earthDatabaseLoading: '正在加载缓存的城市数据库…',
   earthDatabaseConsentTitle: '下载本地城市数据库？',

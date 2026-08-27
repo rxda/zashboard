@@ -575,6 +575,8 @@ const ru: LANG_MESSAGE = {
   earthExpand: 'Развернуть глобус',
   earthCollapse: 'Восстановить размер глобуса',
   earthConnectionLine: 'Маршрут подключения',
+  earthLegend: 'Легенда точек',
+  earthLegendProxied: 'Через прокси',
   earthDatabaseChecking: 'Проверка локальной базы городов…',
   earthDatabaseLoading: 'Загрузка базы городов из кэша…',
   earthDatabaseConsentTitle: 'Скачать локальную базу городов?',

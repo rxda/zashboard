@@ -561,6 +561,8 @@ const zhTW: LANG_MESSAGE = {
   earthExpand: '展開地球畫面',
   earthCollapse: '還原地球畫面',
   earthConnectionLine: '連接線路',
+  earthLegend: '端點圖例',
+  earthLegendProxied: '經代理',
   earthDatabaseChecking: '正在檢查本機城市資料庫…',
   earthDatabaseLoading: '正在載入快取的城市資料庫…',
   earthDatabaseConsentTitle: '下載本機城市資料庫？',

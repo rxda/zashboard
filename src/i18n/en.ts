@@ -572,6 +572,8 @@ const en = {
   earthExpand: 'Expand globe view',
   earthCollapse: 'Restore globe view',
   earthConnectionLine: 'Connection route',
+  earthLegend: 'Endpoint legend',
+  earthLegendProxied: 'Via proxy',
   earthDatabaseChecking: 'Checking the local city database…',
   earthDatabaseLoading: 'Loading the cached city database…',
   earthDatabaseConsentTitle: 'Download the local city database?',
