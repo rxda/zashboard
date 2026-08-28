@@ -13,7 +13,7 @@
         type="button"
         class="flex w-full items-center gap-3 px-3 py-2 text-left"
         :aria-expanded="item.expanded"
-        @click="toggleGroup(item.id)"
+        @click="toggleConnectionCardGroup(item.id)"
       >
         <div class="min-w-0 flex-1">
           <div class="text-base-content/50 text-xs">
@@ -42,13 +42,19 @@
 
 <script setup lang="ts">
 import { getConnectionDisplayValue } from '@/assembly/connections'
+import {
+  expandedConnectionCardGroupIds,
+  resetConnectionCardGroups,
+  syncConnectionCardGroupIds,
+  toggleConnectionCardGroup,
+} from '@/composables/connectionCardGroups'
 import type { ConnectionGroupableKey } from '@/constant'
 import { connectionCardGroupKey, connectionTabShow, renderConnections } from '@/store/connections'
 import { connectionCardLines, proxyChainDirection, showFullProxyChain } from '@/store/settings'
 import { activeUuid } from '@/store/setup'
 import type { Connection } from '@/types'
 import { ChevronRightIcon } from '@heroicons/vue/24/outline'
-import { computed, ref, watch } from 'vue'
+import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import VirtualScroller from '../common/VirtualScroller.vue'
 import ConnectionCtrl from '../controls/ConnectionCtrl.tsx'
@@ -75,7 +81,6 @@ type ConnectionGroup = Omit<ConnectionCardGroupItem, 'type' | 'count' | 'expande
 }
 
 const { t } = useI18n()
-const expandedGroupIds = ref(new Set<string>())
 
 const displayOptions = computed(() => ({
   // 分组值必须与桌面表格 accessorFn 完全一致，不能使用卡片的代理链截断语义。
@@ -118,7 +123,7 @@ const listItems = computed<ConnectionCardListItem[]>(() => {
   }
 
   return groups.value.flatMap((group): ConnectionCardListItem[] => {
-    const expanded = expandedGroupIds.value.has(group.id)
+    const expanded = expandedConnectionCardGroupIds.value.has(group.id)
     const header: ConnectionCardGroupItem = {
       type: 'group',
       id: group.id,
@@ -141,30 +146,12 @@ const listItems = computed<ConnectionCardListItem[]>(() => {
   })
 })
 
-const toggleGroup = (id: string) => {
-  const next = new Set(expandedGroupIds.value)
-
-  if (next.has(id)) next.delete(id)
-  else next.add(id)
-
-  expandedGroupIds.value = next
-}
-
-// 新分组默认折叠；实时刷新只清掉已经消失的组，仍存在的组保持用户当前选择。
-watch(
-  [connectionCardGroupKey, connectionTabShow, activeUuid],
-  () => {
-    expandedGroupIds.value = new Set()
-  },
-  { flush: 'sync' },
-)
-watch(groups, (nextGroups) => {
-  const liveIds = new Set(nextGroups.map((group) => group.id))
-  const retained = [...expandedGroupIds.value].filter((id) => liveIds.has(id))
-
-  if (retained.length !== expandedGroupIds.value.size) {
-    expandedGroupIds.value = new Set(retained)
-  }
+// 新分组默认折叠。
+watch([connectionCardGroupKey, connectionTabShow, activeUuid], resetConnectionCardGroups, {
+  flush: 'sync',
+})
+watch(groups, (nextGroups) => syncConnectionCardGroupIds(nextGroups.map((group) => group.id)), {
+  immediate: true,
 })
 
 const getItemKey = (item: unknown) => (item as ConnectionCardListItem).id

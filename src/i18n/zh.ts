@@ -214,6 +214,8 @@ const zh: LANG_MESSAGE = {
   sortOldestFirst: '最早在前',
   groupBy: '分组方式',
   noGrouping: '不分组',
+  expandAllGroups: '展开全部分组',
+  collapseAllGroups: '折叠全部分组',
   rule: '规则',
   sourceIP: '源IP',
   activeConnections: '活跃',

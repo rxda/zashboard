@@ -214,6 +214,8 @@ const zhTW: LANG_MESSAGE = {
   sortOldestFirst: '最早在前',
   groupBy: '分組方式',
   noGrouping: '不分組',
+  expandAllGroups: '展開全部分組',
+  collapseAllGroups: '摺疊全部分組',
   rule: '規則',
   sourceIP: '源IP',
   activeConnections: '活躍',

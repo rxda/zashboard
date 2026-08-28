@@ -213,6 +213,8 @@ const en = {
   sortOldestFirst: 'Oldest first',
   groupBy: 'Group by',
   noGrouping: 'No grouping',
+  expandAllGroups: 'Expand all groups',
+  collapseAllGroups: 'Collapse all groups',
   rule: 'Rule',
   sourceIP: 'Source IP',
   activeConnections: 'Active',

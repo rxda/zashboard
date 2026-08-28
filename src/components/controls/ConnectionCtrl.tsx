@@ -1,4 +1,9 @@
 import { disconnectAllAPI, disconnectByIdAPI } from '@/assembly/connections'
+import {
+  hasConnectionCardGroups,
+  hasExpandedConnectionCardGroups,
+  toggleAllConnectionCardGroups,
+} from '@/composables/connectionCardGroups'
 import { useCtrlsBar } from '@/composables/useCtrlsBar'
 import {
   CONNECTION_GROUPABLE_KEYS,
@@ -28,6 +33,8 @@ import { isConnectionCard } from '@/store/settings'
 import {
   BarsArrowDownIcon,
   BarsArrowUpIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
   LinkIcon,
   LinkSlashIcon,
   PauseIcon,
@@ -141,6 +148,29 @@ export default defineComponent({
           ]}
         />
       )
+
+      // 分组后卡片默认全折叠，逐个点开太慢，控制栏给一个整体展开 / 折叠的开关。
+      const toggleGroupsLabel = () =>
+        hasExpandedConnectionCardGroups.value ? t('collapseAllGroups') : t('expandAllGroups')
+      const toggleGroupsButton =
+        isConnectionCard.value && connectionCardGroupKey.value !== null ? (
+          <button
+            class="btn btn-circle btn-sm"
+            disabled={!hasConnectionCardGroups.value}
+            aria-label={toggleGroupsLabel()}
+            onClick={() => {
+              toggleAllConnectionCardGroups()
+              updateTip(toggleGroupsLabel())
+            }}
+            onMouseenter={(e) => showTip(e, toggleGroupsLabel(), { appendTo: 'parent' })}
+          >
+            {hasExpandedConnectionCardGroups.value ? (
+              <ChevronUpIcon class="h-4 w-4" />
+            ) : (
+              <ChevronDownIcon class="h-4 w-4" />
+            )}
+          </button>
+        ) : null
 
       const settingsModal = (
         <>
@@ -267,6 +297,7 @@ export default defineComponent({
           {isConnectionCard.value && (
             <div class="flex w-full items-center gap-2">
               {sortForCards}
+              {toggleGroupsButton}
               {settingsModal}
               {buttons}
             </div>
@@ -282,6 +313,7 @@ export default defineComponent({
           {isConnectionCard.value && sortForCards}
           <SourceIPFilter class="w-40" />
           <div class="flex flex-1">{searchInput}</div>
+          {toggleGroupsButton}
           {settingsModal}
           {buttons}
         </div>
