@@ -53,13 +53,18 @@
 <script setup lang="ts">
 import { PROXY_CARD_SIZE, PROXY_SORT_TYPE } from '@/constant'
 import { checkTruncation } from '@/helper/tooltip'
+import {
+  highlightProxyNode,
+  highlightedProxyNode,
+  scrollNodeIntoViewKey,
+} from '@/composables/proxiesScroll'
 import { scrollIntoCenter } from '@/helper/utils'
 import { proxyLatencyTest } from '@/assembly/proxies'
 import { getIPv6ByName, getTestUrl, proxyMap } from '@/assembly/proxies'
 import { IPv6test, proxyCardSize, proxySortType, truncateProxyName } from '@/store/settings'
 import { smartWeightsMap } from '@/store/smart'
 import { twMerge } from 'tailwind-merge'
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, inject, nextTick, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import LatencyTag from './LatencyTag.vue'
 import ProxyIcon from './ProxyIcon.vue'
@@ -93,7 +98,10 @@ const typeDescription = computed(() => {
   return [type, isUDP, smartDesc, isV6].filter(Boolean).join(isSmallCard.value ? '/' : ' / ')
 })
 
-const latencyTipAnimationClass = ref<string[]>([])
+const scrollNodeIntoView = inject(scrollNodeIntoViewKey, null)
+const latencyTipAnimationClass = computed(() =>
+  highlightedProxyNode.value === props.name ? ['latency-highlight'] : [],
+)
 const handlerLatencyTest = async () => {
   if (isLatencyTesting.value) return
 
@@ -109,18 +117,22 @@ const handlerLatencyTest = async () => {
     [PROXY_SORT_TYPE.LATENCY_ASC, PROXY_SORT_TYPE.LATENCY_DESC].includes(proxySortType.value) &&
     cardRef.value
   ) {
+    // 高亮先标上:重排可能把这张卡挪出虚拟列表的渲染窗口,那时组件已经没了
+    highlightProxyNode(props.name)
     // 等排序后的 DOM 落地再量位置,否则拿到的还是重排前的旧坐标。
     await nextTick()
-    scrollIntoCenter(cardRef.value)
-    latencyTipAnimationClass.value = ['latency-highlight']
-    setTimeout(() => {
-      latencyTipAnimationClass.value = []
-    }, 1500)
+    // 虚拟列表里卡片可能已经不在窗口内,先让列表滚过去,它才会重新挂上
+    scrollNodeIntoView?.(props.name)
+    await nextTick()
+    if (cardRef.value) {
+      scrollIntoCenter(cardRef.value)
+    }
   }
 }
 
 onMounted(() => {
-  if (props.active) {
+  // 虚拟列表会在展开时把选中节点直接摆到视野里(无动画),不需要卡片再平滑滚一次
+  if (props.active && !scrollNodeIntoView) {
     setTimeout(() => {
       scrollIntoCenter(cardRef.value)
     }, 300)
