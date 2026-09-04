@@ -52,7 +52,9 @@ export const useCalculateMaxProxies = (totalProxies: number, activeIndex: number
  * 卡片拿不到自己的 DOM 也就无从滚起。ProxiesContent 提供它,非虚拟化的用法注入不到,
  * 退回原来的 scrollIntoCenter。
  */
-export const scrollNodeIntoViewKey: InjectionKey<(name: string) => void> =
+export type ScrollProxyNodeIntoView = (name: string, behavior: ScrollBehavior) => void
+
+export const scrollNodeIntoViewKey: InjectionKey<ScrollProxyNodeIntoView> =
   Symbol('scrollNodeIntoView')
 
 /*

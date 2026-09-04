@@ -96,6 +96,117 @@
   }
 }
 
+/* ---------- 折叠卡片 ---------- */
+
+/*
+ * 卡片高度、内容淡入淡出、后面行的位移是同一段动作的三条过渡，必须共用一组时长曲线。
+ * 挂在 :root 而不是 .collapse-motion 上：行的位移那条选中的是卡片的兄弟节点，
+ * 拿不到卡片自己的自定义属性。
+ */
+:root {
+  --collapse-motion-duration: 0.32s;
+  --collapse-motion-ease: cubic-bezier(0.34, 0.1, 0.2, 1);
+}
+
+/*
+ * daisyUI 的 collapse 把 grid-template-rows 过渡写死 0.2s，内容层的 overflow /
+ * content-visibility 又是同样写死 0.2s 的离散切换，时长一改内容就会在高度还在动的
+ * 时候突然冒出来或消失。所以只借它的外观（底色 / 圆角 / 玻璃），展开收起自己写。
+ * header 永远只放标题，body 在 preview 和节点内容之间切换，并过渡到量出的目标高度。
+ *
+ * 覆盖靠的是层叠层：daisyUI 5 的 .collapse 在 @layer utilities 里，本文件是无层样式，
+ * 无层永远压过任何层。别把本文件包进 @layer，那样这些覆盖会静默失效。
+ */
+.collapse-motion {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: max-content max-content;
+}
+
+/* 标题占第一行，preview 和节点内容在第二行的同一个网格区域里交叉淡入淡出。 */
+.collapse-motion > .collapse-motion-header {
+  grid-area: 1 / 1;
+}
+
+.collapse-motion > .collapse-motion-body {
+  grid-area: 2 / 1;
+  display: grid;
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  transition: height var(--collapse-motion-duration) var(--collapse-motion-ease);
+}
+
+.collapse-motion-preview,
+.collapse-motion-content {
+  grid-area: 1 / 1;
+  align-self: start;
+  opacity: 1;
+  transition: opacity var(--collapse-motion-duration) var(--collapse-motion-ease);
+}
+
+/*
+ * 两层同处一个 grid area 时会被同一条网格轨道拉成相同高度，量不到较矮的 preview。
+ * 过渡期间 body 已由内联 height 钉住，把两层临时绝对定位后既不会叠加布局高度，也能分别
+ * 量到各自的真实终点；收尾卸载旧层后再恢复正常流。
+ */
+.collapse-motion-body-transitioning > :is(.collapse-motion-preview, .collapse-motion-content) {
+  position: absolute;
+  inset: 0 0 auto;
+}
+
+.collapse-motion-open .collapse-motion-preview,
+.collapse-motion:not(.collapse-motion-open) .collapse-motion-content {
+  pointer-events: none;
+  opacity: 0;
+}
+
+/*
+ * 展开收起时卡片会被浮起来（占位高度由 CollapseCard.vue 钉死）：代理页的卡片挂在虚拟
+ * 列表上，卡片每变一次高度就要重测一次、整列重新定位，逐帧变高等于整列每帧重排。浮起来
+ * 之后每帧的布局只发生在卡片自己身上，上下的卡片一次动画只动一次。
+ *
+ * 这套占位 + 浮层的写法和侧栏是同一个：SideBar 自己 absolute 做宽度过渡，外层占位单独
+ * 切（见 HomePage.vue 的 sidebarLayoutCollapsed）。z-index 也是同一个理由——占位停在
+ * 较小的那个高度上，浮起来的卡片得盖得住下面的卡片。
+ */
+.collapse-motion-placeholder {
+  position: relative;
+}
+
+.collapse-motion-floating > .collapse-motion {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  z-index: 10;
+}
+
+/*
+ * 卡片撑开 / 收起的过程中，同列后面的行跟着挪的位移。CollapseCard 量到终点高度后一次性
+ * 写进列容器的变量，插值由这条过渡完成，行只做 transform、不进布局(见
+ * composables/virtualRowShift.ts)。曲线和时长跟卡片那条对齐。
+ *
+ * 过渡挂在这条规则里而不是常驻在行上：收尾时撤掉 origin 类，位移和过渡一起消失，正好和
+ * virtualizer 重排出来的新 top 抵消；常驻的话行会再慢慢滑回 0，等于动了两次。
+ */
+.virtual-row-shift-origin ~ * {
+  transform: translateY(var(--virtual-row-shift, 0px));
+  transition: transform var(--collapse-motion-duration) var(--collapse-motion-ease);
+}
+
+/*
+ * 切换结束要靠 body height 的 transitionend 卸载旧内容，所以过渡不能直接去掉，只能压到
+ * 近似瞬间。
+ */
+@media (prefers-reduced-motion: reduce) {
+  .collapse-motion-body,
+  .collapse-motion-preview,
+  .collapse-motion-content,
+  .virtual-row-shift-origin ~ * {
+    transition-duration: 0.01ms;
+  }
+}
+
 /* ---------- 代理节点网格 ---------- */
 
 /* 重排 FLIP + 增删淡入淡出 */

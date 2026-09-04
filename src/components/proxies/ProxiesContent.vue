@@ -7,14 +7,11 @@
  * 每张都带自己的 computed 和 LatencyTag 的 CountUp。这里只渲染视口附近的那几行。
  *
  * 代价是放弃了 ProxyNodeGrid 的 TransitionGroup 重排动画 —— 跨行的 FLIP 和虚拟化
- * 没法共存。测速后要跟住刚点过的那张卡片,靠的仍然是 ProxyNodeCard 里的
- * latency-highlight 高亮 + scrollIntoCenter 滚动居中。
- *
- * 布局用「上下占位块 + 正常流里的几行」,而不是把行绝对定位:卡片一旦多出一个定位祖先,
- * scrollIntoCenter 依赖的 offsetTop 口径就变了,两处滚动居中会一起失效。
+ * 没法共存。节点滚动由列表统一处理:展开定位用 auto,测速重排定位用 smooth。
  */
 import { handlerProxySelect } from '@/assembly/proxies'
 import { PROXY_CARD_SIZE } from '@/constant'
+import { useCollapseTransition } from '@/composables/collapseTransition'
 import { scrollNodeIntoViewKey } from '@/composables/proxiesScroll'
 import { PROXIES_PARENT_CLASS } from '@/helper/utils'
 import { minProxyCardWidth, proxyCardSize } from '@/store/settings'
@@ -56,6 +53,13 @@ const measureRowHeight = (element: Element, entry: ResizeObserverEntry | undefin
   return box ? Math.round(box.blockSize) : (element as HTMLElement).offsetHeight
 }
 
+/*
+ * 展开动画期间只渲一屏。卡片是在动画开始之前挂上的(见 common/CollapseCard.vue),那一下
+ * 少挂几行就少占几毫秒;屏外的几行等 transitionend 之后再补,那时动画已经结束了。
+ */
+const collapseTransitioning = useCollapseTransition()
+const overscan = computed(() => (collapseTransitioning?.value ? 0 : 3))
+
 const rowVirtualizer = useVirtualizer(
   computed(() => ({
     count: rowCount.value,
@@ -63,7 +67,7 @@ const rowVirtualizer = useVirtualizer(
     estimateSize: () => estimatedRowHeight.value,
     measureElement: measureRowHeight,
     scrollMargin: scrollMargin.value,
-    overscan: 3,
+    overscan: overscan.value,
   })),
 )
 
@@ -117,18 +121,24 @@ const syncScrollMargin = () => {
 }
 
 /*
- * 选中的节点可能落在窗口之外 —— 不先滚过去它根本不会挂载,ProxyNodeCard 里那次
- * scrollIntoCenter 也就无从触发。滚到位之后那次居中会判定已经可见,不会再动一次。
+ * 虚拟列表里的目标节点可能根本没有挂载,所以由行 virtualizer 负责定位。两类调用共享
+ * 「已经完整可见就不动」这一条规则,只有滚动行为不同:展开瞬移,测速平滑滚动。
  */
-const scrollNodeIntoView = (name: string) => {
+const scrollNodeIntoView = (name: string, behavior: ScrollBehavior) => {
   const index = props.renderProxies.indexOf(name)
 
-  if (index < 0) return
+  if (index < 0 || !scrollEl.value) return
 
-  // behavior 用 auto:直接跳过去,不要滚动动画
-  rowVirtualizer.value.scrollToIndex(Math.floor(index / columns.value), {
+  const rowIndex = Math.floor(index / columns.value)
+  const row = virtualRows.value.find((item) => item.index === rowIndex)
+  const viewportStart = scrollEl.value.scrollTop
+  const viewportEnd = viewportStart + scrollEl.value.clientHeight
+
+  if (row && row.start >= viewportStart && row.end <= viewportEnd) return
+
+  rowVirtualizer.value.scrollToIndex(rowIndex, {
     align: 'center',
-    behavior: 'auto',
+    behavior,
   })
 }
 
@@ -148,7 +158,7 @@ const showActiveNode = () => {
 
   activeNodeShown = true
   syncScrollMargin()
-  scrollNodeIntoView(props.now)
+  scrollNodeIntoView(props.now, 'auto')
 }
 
 watch([width, scrollEl], showActiveNode)

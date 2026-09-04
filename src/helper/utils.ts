@@ -97,17 +97,30 @@ export const getMinCardWidth = (size: PROXY_CARD_SIZE) => {
 
 export const PROXIES_PARENT_CLASS = 'proxies-scrollable-parent'
 
-export const scrollIntoCenter = (el: HTMLElement) => {
+const getLayoutTop = (el: HTMLElement) => {
+  let top = 0
+  let current: HTMLElement | null = el
+
+  while (current) {
+    top += current.offsetTop
+    current = current.offsetParent as HTMLElement | null
+  }
+
+  return top
+}
+
+export const scrollIntoCenter = (el: HTMLElement, behavior: ScrollBehavior = 'smooth') => {
   const scrollableParent = findScrollableParent(el)
 
   if (!scrollableParent) return
 
-  const parentTop = scrollableParent.offsetTop
-  const childTop = el.offsetTop
+  const parentTop = getLayoutTop(scrollableParent)
+  const childTop = getLayoutTop(el)
 
-  // 判断可见性只能用布局位置(offsetTop),不能用 getBoundingClientRect:
+  // 判断可见性只能用布局位置(offsetTop 链),不能用 getBoundingClientRect:
   // 列表重排时 TransitionGroup 的 FLIP 会给卡片挂 transform,rect 停在动画起点(旧位置,
-  // 通常还在视口内),会被误判成"已经可见"而跳过滚动。
+  // 通常还在视口内),会被误判成"已经可见"而跳过滚动。把整条 offsetParent 链相减,
+  // 也能覆盖按 provider 分段后卡片与滚动容器不再共用 offsetParent 的结构。
   const relativeTop = childTop - parentTop - scrollableParent.scrollTop
 
   if (relativeTop >= 0 && relativeTop + el.clientHeight <= scrollableParent.clientHeight) return
@@ -115,10 +128,15 @@ export const scrollIntoCenter = (el: HTMLElement) => {
   const centerOffset =
     childTop - parentTop - scrollableParent.clientHeight / 2 + el.clientHeight / 2
 
-  scrollableParent.scrollTo({
-    top: centerOffset,
-    behavior: 'smooth',
-  })
+  if (behavior === 'smooth') {
+    scrollableParent.scrollTo({
+      top: centerOffset,
+      behavior,
+    })
+  } else {
+    // 直接赋值不会继承容器可能存在的 CSS scroll-behavior,用于展开后的瞬时定位。
+    scrollableParent.scrollTop = centerOffset
+  }
 }
 
 export const findScrollableParent = (el: HTMLElement | null): HTMLElement | null => {
