@@ -94,12 +94,11 @@ const rowVirtualizer = useVirtualizer(virtualizerOptions)
  * 行里的折叠卡片展开 / 收起时，后面的行改用 transform 跟着挪，不走逐帧重排。
  * 动画收尾时它会回头调 measureElement，把卡片的新高度同步给 virtualizer。
  */
-provideVirtualRowShift(
-  createVirtualRowShift(
-    () => columnRef.value,
-    (row) => rowVirtualizer.value.measureElement(row),
-  ),
+const virtualRowShift = createVirtualRowShift(
+  () => columnRef.value,
+  (row) => rowVirtualizer.value.measureElement(row),
 )
+provideVirtualRowShift(virtualRowShift)
 const virtualRows = computed(() => rowVirtualizer.value.getVirtualItems())
 const totalSize = computed(() => rowVirtualizer.value.getTotalSize())
 
@@ -150,6 +149,8 @@ const correctScrollBy = (delta: number) => {
 defineExpose({ scrollToItem, correctScrollBy })
 
 onBeforeUnmount(() => {
+  virtualRowShift.destroy()
+
   for (const [key, size] of rowVirtualizer.value.itemSizeCache) {
     if (size > 0) {
       measuredSizes.set(sizeKey(String(key)), size)

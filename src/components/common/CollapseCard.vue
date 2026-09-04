@@ -44,7 +44,7 @@
 
 <script setup lang="ts">
 import { provideCollapseTransition } from '@/composables/collapseTransition'
-import { useVirtualRowShift, type VirtualRowShift } from '@/composables/virtualRowShift'
+import { useVirtualRowShift } from '@/composables/virtualRowShift'
 import { PROXIES_PARENT_CLASS } from '@/helper/utils'
 import { collapseGroupMap } from '@/store/settings'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
@@ -55,24 +55,6 @@ const props = defineProps<{
 }>()
 
 const FLOATING_CLASS = 'collapse-motion-floating'
-
-/*
- * 位移量是挂在列容器上的一个 CSS 变量,同一列同时只能有一张卡片在动,
- * 出现并发就全退回原生逐帧重排。按列分桶(键是列对应的 VirtualRowShift 实例),
- * 免得双列模式下两列各动各的被误判成并发。
- */
-const shiftingCardsByColumn = new WeakMap<VirtualRowShift, Set<() => void>>()
-
-const getShiftingCards = (shift: VirtualRowShift) => {
-  let cards = shiftingCardsByColumn.get(shift)
-
-  if (!cards) {
-    cards = new Set()
-    shiftingCardsByColumn.set(shift, cards)
-  }
-
-  return cards
-}
 
 const placeholderRef = ref<HTMLDivElement>()
 const cardRef = ref<HTMLDivElement>()
@@ -125,37 +107,21 @@ const beginShift = (targetBodyHeight: number) => {
 
   // 上一程还没跑完就被点回去了(连点)：基准还是第一次钉下的那个高度，只要把终点重算一遍
   if (!shiftRow) {
-    const shiftingCards = getShiftingCards(rowShift)
-
-    if (shiftingCards.size) {
-      for (const stop of [...shiftingCards]) {
-        stop()
-      }
-
-      return
-    }
-
     shiftBaseHeight = card.offsetHeight
     placeholder.style.height = `${shiftBaseHeight}px`
     placeholder.classList.add(FLOATING_CLASS)
     shiftRow = row
-    rowShift.begin(row)
-    shiftingCards.add(endShift)
+    rowShift.begin(row, () => releaseShift(row))
   }
 
   const header = headerRef.value
 
   if (header) {
-    rowShift.update(header.offsetHeight + targetBodyHeight - shiftBaseHeight)
+    rowShift.update(row, header.offsetHeight + targetBodyHeight - shiftBaseHeight)
   }
 }
 
-// 收尾(或被并发的另一张卡片挤掉时)：占位交还给卡片，位移交还给 virtualizer
-const endShift = () => {
-  if (rowShift) {
-    shiftingCardsByColumn.get(rowShift)?.delete(endShift)
-  }
-
+const releaseShift = (row: HTMLElement | null) => {
   const placeholder = placeholderRef.value
 
   if (placeholder) {
@@ -163,10 +129,22 @@ const endShift = () => {
     placeholder.style.height = ''
   }
 
-  if (shiftRow) {
-    rowShift?.end(shiftRow)
+  if (shiftRow === row) {
     shiftRow = null
   }
+}
+
+// 同列所有动画结束后一起交还占位和高度，避免中途重排打断其他卡片。
+const endShift = () => {
+  const row = shiftRow
+
+  if (!rowShift || !row) {
+    releaseShift(row)
+
+    return
+  }
+
+  rowShift.end(row)
 }
 
 // nextTick 的回调撤不掉,换成对暗号:令牌一变,还没跑到的那一节自己作废
@@ -273,6 +251,13 @@ const handlerTransitionEnd = (e: TransitionEvent) => {
 
 onBeforeUnmount(() => {
   cancelPendingOpen()
-  endShift()
+
+  const row = shiftRow
+
+  if (rowShift && row) {
+    rowShift.cancel(row)
+  } else {
+    releaseShift(row)
+  }
 })
 </script>

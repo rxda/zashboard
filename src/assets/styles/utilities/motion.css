@@ -157,7 +157,7 @@
   z-index: 1;
 }
 
-.virtual-row-shift-origin ~ * {
+.virtual-row-shift-row {
   transform: translateY(var(--virtual-row-shift, 0px));
   transition: transform var(--collapse-motion-duration) var(--collapse-motion-ease);
 }
@@ -170,7 +170,7 @@
   .collapse-motion-body,
   .collapse-motion-preview,
   .collapse-motion-content,
-  .virtual-row-shift-origin ~ * {
+  .virtual-row-shift-row {
     transition-duration: 0.01ms;
   }
 }
