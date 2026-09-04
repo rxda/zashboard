@@ -2,12 +2,12 @@
 /*
  * 节点网格按「行」虚拟化。
  *
- * 原来是 useCalculateMaxProxies + useInfiniteScroll:先渲一屏,滚到底再追加一批,
- * 追加进去的卡片不会再卸载。节点多的组(几百个)展开后就一直挂着几百张 ProxyNodeCard,
+ * 原来是「先渲一屏,滚到底再追加一批」:追加进去的卡片不会再卸载。
+ * 节点多的组(几百个)展开后就一直挂着几百张 ProxyNodeCard,
  * 每张都带自己的 computed 和 LatencyTag 的 CountUp。这里只渲染视口附近的那几行。
  *
  * 代价是放弃了 ProxyNodeGrid 的 TransitionGroup 重排动画 —— 跨行的 FLIP 和虚拟化
- * 没法共存。节点滚动由列表统一处理:展开定位用 auto,测速重排定位用 smooth。
+ * 没法共存。测速重排后的节点定位由列表统一处理。
  */
 import { handlerProxySelect } from '@/assembly/proxies'
 import { PROXY_CARD_SIZE } from '@/constant'
@@ -17,7 +17,7 @@ import { PROXIES_PARENT_CLASS } from '@/helper/utils'
 import { minProxyCardWidth, proxyCardSize } from '@/store/settings'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useElementSize, useResizeObserver } from '@vueuse/core'
-import { computed, nextTick, onMounted, provide, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, provide, ref } from 'vue'
 import ProxyNodeCard from './ProxyNodeCard.vue'
 
 // 行距做在行自己的 pb 上,让它算进量到的行高里(virtualizer 的 gap 保持 0)
@@ -121,8 +121,8 @@ const syncScrollMargin = () => {
 }
 
 /*
- * 虚拟列表里的目标节点可能根本没有挂载,所以由行 virtualizer 负责定位。两类调用共享
- * 「已经完整可见就不动」这一条规则,只有滚动行为不同:展开瞬移,测速平滑滚动。
+ * 虚拟列表里的目标节点可能根本没有挂载,所以由行 virtualizer 负责定位。
+ * 已经完整可见就不动。
  */
 const scrollNodeIntoView = (name: string, behavior: ScrollBehavior) => {
   const index = props.renderProxies.indexOf(name)
@@ -145,33 +145,15 @@ const scrollNodeIntoView = (name: string, behavior: ScrollBehavior) => {
 // 测速重排后卡片可能已经不在渲染窗口里,由列表负责滚过去(见 ProxyNodeCard)
 provide(scrollNodeIntoViewKey, scrollNodeIntoView)
 
-/*
- * 展开时选中的节点直接就在视野里,不滚给用户看。
- *
- * 只能等列宽量出来再定位:首帧 useElementSize 还是 0,列数会被当成 1,
- * 算出来的行号差好几倍,跳到的位置根本不对。
- */
-let activeNodeShown = false
-
-const showActiveNode = () => {
-  if (activeNodeShown || !scrollEl.value || !width.value || !props.now) return
-
-  activeNodeShown = true
-  syncScrollMargin()
-  scrollNodeIntoView(props.now, 'auto')
-}
-
-watch([width, scrollEl], showActiveNode)
+// 按订阅分段时会有多个实例共用一个滚动容器,前面的段变高之后要由 ProxiesByProvider 叫醒
+defineExpose({ syncScrollMargin })
 
 useResizeObserver(scrollEl, syncScrollMargin)
 
 onMounted(() => {
   scrollEl.value = rootRef.value?.closest(`.${PROXIES_PARENT_CLASS}`) as HTMLElement | null
 
-  nextTick(() => {
-    syncScrollMargin()
-    showActiveNode()
-  })
+  nextTick(syncScrollMargin)
 })
 </script>
 

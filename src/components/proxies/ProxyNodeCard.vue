@@ -56,7 +56,7 @@ import { proxyLatencyTest } from '@/assembly/proxies'
 import { getIPv6ByName, getTestUrl, proxyMap } from '@/assembly/proxies'
 import { IPv6test, proxyCardSize, proxySortType, truncateProxyName } from '@/store/settings'
 import { smartWeightsMap } from '@/store/smart'
-import { computed, inject, nextTick, onMounted, ref } from 'vue'
+import { computed, inject, nextTick, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import LatencyTag from './LatencyTag.vue'
 import ProxyIcon from './ProxyIcon.vue'
@@ -130,15 +130,6 @@ const handlerLatencyTest = async () => {
     }
   }
 }
-
-onMounted(() => {
-  // 虚拟列表由父组件定位；非虚拟列表仍在激活卡片挂载后做同样的瞬时定位。
-  if (props.active && !scrollNodeIntoView) {
-    setTimeout(() => {
-      scrollIntoCenter(cardRef.value, 'auto')
-    }, 300)
-  }
-})
 </script>
 
 <style scoped>
