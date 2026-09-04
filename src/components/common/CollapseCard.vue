@@ -57,11 +57,9 @@ const props = defineProps<{
 const FLOATING_CLASS = 'collapse-motion-floating'
 
 /*
- * 位移量是挂在列容器上的一个 CSS 变量，同一列同时只能有一张卡片在动。全部展开 / 收起
- * 那种一起动的情况，位移量本该逐张累加，一个变量表达不了，索性全都退回原生的逐帧重排。
- *
- * 按列分桶：变量本来就是各列一份，双列模式下两列各动各的并不冲突，混在一个集合里会让
- * 它们互相判定成并发、白白一起退回逐帧。注入到的 VirtualRowShift 实例就是列的身份。
+ * 位移量是挂在列容器上的一个 CSS 变量,同一列同时只能有一张卡片在动,
+ * 出现并发就全退回原生逐帧重排。按列分桶(键是列对应的 VirtualRowShift 实例),
+ * 免得双列模式下两列各动各的被误判成并发。
  */
 const shiftingCardsByColumn = new WeakMap<VirtualRowShift, Set<() => void>>()
 
@@ -94,10 +92,7 @@ const showCollapse = computed({
   },
 })
 
-/*
- * 视觉上的展开态。它会等目标内容挂载、布局稳定后再更新，用于同时切换 preview/content
- * 的透明度和 body 的目标高度。
- */
+// 视觉上的展开态,等目标内容挂载、布局稳定后再更新
 const expanded = ref(showCollapse.value)
 const showContent = ref(showCollapse.value)
 const showPreview = ref(!showCollapse.value)
@@ -117,12 +112,9 @@ let transitionTimer = 0
 const TRANSITION_FALLBACK_DELAY = 400
 
 /*
- * 动画期间把卡片浮起来、占位高度钉死在动画开始时的值：卡片挂在虚拟列表上，高度每变一次
- * 就要重测一次、整列重新定位，逐帧变高等于整列每帧重排。钉死之后 virtualizer 全程不动，
- * 后面的行改成一次性 transform 到终点，剩下的插值交给 CSS —— 每帧只有卡片自己的布局。
- *
- * 终点高度在 DOM 更新后量一次(展开量节点内容、收起量 preview)，占位本身不跟着
- * 撑，所以量得不准最多是收尾归位差一点，不会出现先撑开再缩回去。
+ * 动画期间把卡片浮起来、占位高度钉死在动画开始时的值,让 virtualizer 全程不动;
+ * 后面的行一次性 transform 到终点,插值交给 CSS,每帧只有卡片自己的布局。
+ * 终点高度在 DOM 更新后量一次(展开量 content、收起量 preview)。
  */
 const beginShift = (targetBodyHeight: number) => {
   const placeholder = placeholderRef.value
@@ -225,14 +217,9 @@ const startHeightTransition = (value: boolean, targetHeight: number) => {
 }
 
 /*
- * 展开分两步：先挂内容，等它布局落定，再加 open 类起动画。
- *
- * 内容一挂就是几十张节点卡片(虚拟列表首屏)，和动画同帧的话过渡刚起步就被这一次长任务
- * 卡住 —— 掉的正好是动画开头那几帧。拆开之后卡的是点击到起动之间那一下，动画本身全程干净。
- *
- * 双 rAF 是因为虚拟列表要两拍才稳：第一拍挂 ProxiesContent，它在 onMounted 里才拿到
- * 滚动容器、算出行范围，第二拍才把行渲出来。等两帧就能让这些布局都在动画之前提交完。
- * 收起只需要等 preview 挂载和起始高度提交，所以一帧就够。
+ * 展开分两步:先挂内容,等布局落定,再起高度动画 —— 别让首屏几十张卡片的挂载长任务
+ * 掉在动画开头那几帧上。展开用双 rAF(虚拟列表要两拍才稳:先挂 ProxiesContent,
+ * 它 onMounted 才拿到滚动容器算行范围,第二拍才渲行);收起只等 preview 挂载,一帧够。
  */
 watch(showCollapse, (value) => {
   cancelPendingOpen()
@@ -240,10 +227,7 @@ watch(showCollapse, (value) => {
   const token = openToken
   const body = bodyRef.value
 
-  /*
-   * 连点发生在目标态真正起动之前时，当前画面本来就是用户刚切回的状态，不需要凭空补一段
-   * 动画。把为上一程预挂的内容清掉即可。
-   */
+  // 连点又切回了当前画面:不用补动画,把上一程预挂的内容清掉即可
   if (value === expanded.value) {
     settleWithoutTransition(value)
 
@@ -280,10 +264,7 @@ watch(showCollapse, (value) => {
   })
 })
 
-/*
- * body 自己只有 height 这一条过渡。preview/content 的透明度事件会冒泡到这里，按 target
- * 和 propertyName 一起过滤。高度相同而没有 transitionend 时由上面的短定时器兜底。
- */
+// 只认 body 自己的 height 过渡,滤掉 preview/content 冒泡上来的透明度事件
 const handlerTransitionEnd = (e: TransitionEvent) => {
   if (e.target !== bodyRef.value || e.propertyName !== 'height') return
 

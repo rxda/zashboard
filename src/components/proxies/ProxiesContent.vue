@@ -1,13 +1,7 @@
 <script setup lang="ts">
 /*
- * 节点网格按「行」虚拟化。
- *
- * 原来是「先渲一屏,滚到底再追加一批」:追加进去的卡片不会再卸载。
- * 节点多的组(几百个)展开后就一直挂着几百张 ProxyNodeCard,
- * 每张都带自己的 computed 和 LatencyTag 的 CountUp。这里只渲染视口附近的那几行。
- *
- * 代价是放弃了 ProxyNodeGrid 的 TransitionGroup 重排动画 —— 跨行的 FLIP 和虚拟化
- * 没法共存。测速重排后的节点定位由列表统一处理。
+ * 节点网格按「行」虚拟化,只渲染视口附近的几行。
+ * 代价:放弃了跨行的 TransitionGroup 重排动画,和虚拟化没法共存。
  */
 import { handlerProxySelect } from '@/assembly/proxies'
 import { PROXY_CARD_SIZE } from '@/constant'
@@ -20,7 +14,7 @@ import { useElementSize, useResizeObserver } from '@vueuse/core'
 import { computed, nextTick, onMounted, provide, ref } from 'vue'
 import ProxyNodeCard from './ProxyNodeCard.vue'
 
-// 行距做在行自己的 pb 上,让它算进量到的行高里(virtualizer 的 gap 保持 0)
+// 行距做在行自己的 pb 上,算进量到的行高里;最后一行多出来的 pb 由根节点的 -mb-2 抵掉。
 const GAP = 8
 
 const props = defineProps<{
@@ -43,20 +37,14 @@ const estimatedRowHeight = computed(
   () => (proxyCardSize.value === PROXY_CARD_SIZE.SMALL ? 48 : 60) + GAP,
 )
 
-/*
- * 入场 / 高亮动画会给卡片挂 transform,getBoundingClientRect 量出来是变换后的高度。
- * borderBoxSize 和 offsetHeight 都是布局尺寸,不受影响。
- */
+// 入场 / 高亮动画会给卡片挂 transform,只能用不受 transform 影响的布局尺寸来量。
 const measureRowHeight = (element: Element, entry: ResizeObserverEntry | undefined) => {
   const box = entry?.borderBoxSize?.[0]
 
   return box ? Math.round(box.blockSize) : (element as HTMLElement).offsetHeight
 }
 
-/*
- * 展开动画期间只渲一屏。卡片是在动画开始之前挂上的(见 common/CollapseCard.vue),那一下
- * 少挂几行就少占几毫秒;屏外的几行等 transitionend 之后再补,那时动画已经结束了。
- */
+// 展开动画期间 overscan 归零,只渲一屏,屏外的行等 transitionend 之后再补。
 const collapseTransitioning = useCollapseTransition()
 const overscan = computed(() => (collapseTransitioning?.value ? 0 : 3))
 
@@ -82,9 +70,8 @@ const bottomSpacer = computed(() => {
   const last = virtualRows.value[virtualRows.value.length - 1]
 
   /*
-   * 一行都没渲染时占位块要顶起全部高度。滚动容器是 max-h-108,高度全靠内容撑;
-   * 这里要是返回 0,容器就是 0 高 → 算不出可视区 → 更渲染不出行,两边互相等死。
-   * 手机端的卡片内容区没有内边距,正好会踩到这个死锁。
+   * 一行都没渲染时占位块要顶起全部高度:滚动容器高度全靠内容撑,
+   * 这里返回 0 就会「容器 0 高 → 算不出可视区 → 渲不出行」死锁。
    */
   return Math.max(0, totalSize.value - (last ? last.end - scrollMargin.value : 0))
 })
@@ -92,8 +79,7 @@ const bottomSpacer = computed(() => {
 const rowNodes = (rowIndex: number) =>
   props.renderProxies.slice(rowIndex * columns.value, (rowIndex + 1) * columns.value)
 
-// 每个元素只交给 virtualizer 量一次:measureElement 每调一次都会读一次布局,
-// 而 ref 回调每次 patch 都跑;首次调用后高度变化由 virtualizer 自己的 ResizeObserver 报回来。
+// 每个元素只交给 virtualizer 量一次;之后的高度变化由它自己的 ResizeObserver 报回来。
 const measuredRows = new WeakSet<Element>()
 const measureRow = (el: Element | null) => {
   if (!el || measuredRows.has(el)) return
@@ -106,10 +92,7 @@ const measureRow = (el: Element | null) => {
   })
 }
 
-/*
- * 滚动容器不一定紧挨着自己(组卡片 / 手机端卡片 / 代理集卡片各套了一层),
- * 位置差用 rect 算,不依赖 offsetParent 是谁。
- */
+// 滚动容器不一定紧挨着自己,位置差用 rect 算,不依赖 offsetParent 是谁。
 const syncScrollMargin = () => {
   const root = rootRef.value
   const scroller = scrollEl.value
@@ -120,10 +103,7 @@ const syncScrollMargin = () => {
     root.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop
 }
 
-/*
- * 虚拟列表里的目标节点可能根本没有挂载,所以由行 virtualizer 负责定位。
- * 已经完整可见就不动。
- */
+// 目标节点可能没挂载,由行 virtualizer 负责定位;已经完整可见就不动。
 const scrollNodeIntoView = (name: string, behavior: ScrollBehavior) => {
   const index = props.renderProxies.indexOf(name)
 
@@ -160,7 +140,7 @@ onMounted(() => {
 <template>
   <div
     ref="rootRef"
-    class="min-w-0"
+    class="-mb-2 min-w-0"
   >
     <div :style="{ height: `${topSpacer}px` }" />
     <div
