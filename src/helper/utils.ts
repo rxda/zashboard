@@ -117,10 +117,9 @@ export const scrollIntoCenter = (el: HTMLElement, behavior: ScrollBehavior = 'sm
   const parentTop = getLayoutTop(scrollableParent)
   const childTop = getLayoutTop(el)
 
-  // 判断可见性只能用布局位置(offsetTop 链),不能用 getBoundingClientRect:
-  // 列表重排时 TransitionGroup 的 FLIP 会给卡片挂 transform,rect 停在动画起点(旧位置,
-  // 通常还在视口内),会被误判成"已经可见"而跳过滚动。把整条 offsetParent 链相减,
-  // 也能覆盖按 provider 分段后卡片与滚动容器不再共用 offsetParent 的结构。
+  // 判断可见性使用布局位置(offsetTop 链),而不是 getBoundingClientRect。
+  // 把整条 offsetParent 链相减,也能覆盖按 provider 分段后卡片与滚动容器
+  // 不再共用 offsetParent 的结构。
   const relativeTop = childTop - parentTop - scrollableParent.scrollTop
 
   if (relativeTop >= 0 && relativeTop + el.clientHeight <= scrollableParent.clientHeight) return

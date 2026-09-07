@@ -1,7 +1,6 @@
 <script setup lang="ts">
 /*
  * 节点网格按「行」虚拟化,只渲染视口附近的几行。
- * 代价:放弃了跨行的 TransitionGroup 重排动画,和虚拟化没法共存。
  */
 import { handlerProxySelect } from '@/assembly/proxies'
 import { PROXY_CARD_SIZE } from '@/constant'
