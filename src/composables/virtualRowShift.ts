@@ -12,9 +12,13 @@ import { inject, nextTick, provide, type InjectionKey } from 'vue'
  * virtualizer 的 top 和这里撤掉的 transform 正好抵消，因此收尾也不会跳。
  */
 export type VirtualRowShift = {
-  begin: (row: HTMLElement, release: () => void) => void
-  update: (row: HTMLElement, offset: number) => void
-  end: (row: HTMLElement) => void
+  begin: (
+    row: HTMLElement,
+    offset: number,
+    timing: KeyframeAnimationOptions,
+    release: () => void,
+  ) => void
+  end: (row: HTMLElement) => Promise<void>
   cancel: (row: HTMLElement) => void
   destroy: () => void
 }
@@ -23,6 +27,8 @@ type RowShiftState = {
   offset: number
   finished: boolean
   release: () => void
+  settled?: Promise<void>
+  resolve?: () => void
 }
 
 const ROW_CLASS = 'virtual-row-shift-row'
@@ -41,11 +47,14 @@ export const createVirtualRowShift = (
   measureRow: (row: HTMLElement) => void,
 ): VirtualRowShift => {
   const shifts = new Map<HTMLElement, RowShiftState>()
+  const rowAnimations = new Map<HTMLElement, { offset: number; animation?: Animation }>()
   let observer: MutationObserver | undefined
   let observedColumn: HTMLElement | undefined
   let settling = false
 
   const clearRowStyle = (row: HTMLElement) => {
+    rowAnimations.get(row)?.animation?.cancel()
+    rowAnimations.delete(row)
     row.classList.remove(ROW_CLASS)
     row.style.removeProperty(SHIFT_VAR)
   }
@@ -54,22 +63,25 @@ export const createVirtualRowShift = (
    * 每个已挂载行的位移 = 它上方所有动画行的目标高度差之和。动画 origin 自己也要吃到
    * 更早 origin 的位移，所以先给当前行写前缀和，再把当前行的差值累加进去。
    */
-  const applyOffsets = () => {
+  const applyOffsets = (timing?: KeyframeAnimationOptions) => {
     const column = getColumn()
 
     if (!column) return
 
     let offset = 0
     let followsOrigin = false
+    const changes: { row: HTMLElement; offset?: number; from?: string }[] = []
 
+    // 重定向时先读完当前视觉位置，再一起写目标，避免逐行交替读写样式。
     for (const child of column.children) {
       const row = child as HTMLElement
 
       if (followsOrigin) {
-        row.classList.add(ROW_CLASS)
-        row.style.setProperty(SHIFT_VAR, `${offset}px`)
-      } else {
-        clearRowStyle(row)
+        if (rowAnimations.get(row)?.offset !== offset) {
+          changes.push({ row, offset, from: timing ? getComputedStyle(row).transform : undefined })
+        }
+      } else if (rowAnimations.has(row)) {
+        changes.push({ row })
       }
 
       const state = shifts.get(row)
@@ -78,6 +90,25 @@ export const createVirtualRowShift = (
         followsOrigin = true
         offset += state.offset
       }
+    }
+
+    for (const { row, offset, from } of changes) {
+      clearRowStyle(row)
+      if (offset === undefined) continue
+
+      row.classList.add(ROW_CLASS)
+      row.style.setProperty(SHIFT_VAR, `${offset}px`)
+      const animation = timing
+        ? row.animate({ transform: [from!, `translateY(${offset}px)`] }, timing)
+        : undefined
+
+      // 连点会取消旧位移动画；完成交接由卡片的动画生命周期负责。
+      animation?.finished.catch(() => {})
+      rowAnimations.set(row, { offset, animation })
+    }
+
+    for (const row of rowAnimations.keys()) {
+      if (row.parentElement !== column) clearRowStyle(row)
     }
   }
 
@@ -89,7 +120,7 @@ export const createVirtualRowShift = (
 
     observer?.disconnect()
     observedColumn = column
-    observer = new MutationObserver(applyOffsets)
+    observer = new MutationObserver(() => applyOffsets())
     observer.observe(column, { childList: true })
   }
 
@@ -119,47 +150,50 @@ export const createVirtualRowShift = (
      * nextTick 再撤 transform，二者在一次绘制前完成，视觉位置保持不变。
      */
     nextTick(() => {
+      const callbacks = [...shifts.values()].map((state) => state.resolve)
+
       shifts.clear()
       applyOffsets()
       stopObservingColumn()
       settling = false
+
+      for (const callback of callbacks) {
+        callback?.()
+      }
     })
   }
 
   const shift: VirtualRowShift = {
-    begin: (row, release) => {
+    begin: (row, offset, timing, release) => {
       observeColumn()
 
       const state = shifts.get(row)
 
       if (state) {
+        state.offset = offset
         state.finished = false
         state.release = release
       } else {
-        shifts.set(row, { offset: 0, finished: false, release })
+        shifts.set(row, { offset, finished: false, release })
       }
 
-      applyOffsets()
-    },
-    update: (row, offset) => {
-      const state = shifts.get(row)
-
-      if (!state) return
-
-      state.offset = offset
-      state.finished = false
-      applyOffsets()
+      applyOffsets(timing)
     },
     end: (row) => {
       const state = shifts.get(row)
 
-      if (!state) return
+      if (!state) return Promise.resolve()
 
       state.finished = true
+      state.settled ??= new Promise<void>((resolve) => {
+        state.resolve = resolve
+      })
 
       if ([...shifts.values()].every((item) => item.finished)) {
         releaseAll()
       }
+
+      return state.settled
     },
     /*
      * 行在动画中被卸载时不能继续等同批的其他行，否则已经不存在的占位无法在批末测量。
@@ -177,17 +211,12 @@ export const createVirtualRowShift = (
 
       for (const state of shifts.values()) {
         state.release()
+        state.resolve?.()
       }
 
       shifts.clear()
 
-      const column = getColumn()
-
-      if (column) {
-        for (const child of column.children) {
-          clearRowStyle(child as HTMLElement)
-        }
-      }
+      for (const row of rowAnimations.keys()) clearRowStyle(row)
     },
   }
 

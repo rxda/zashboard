@@ -99,12 +99,12 @@
 /* ---------- 折叠卡片 ---------- */
 
 /*
- * 卡片高度、内容淡入淡出、后面行的位移是同一段动作的三条过渡，必须共用一组时长曲线。
+ * 卡片高度、内容淡入淡出、后面行的位移共用一组 WAAPI 时长与曲线。
  * 挂在 :root 而不是 .collapse-motion 上：行的位移那条选中的是卡片的兄弟节点，
  * 拿不到卡片自己的自定义属性。
  */
 :root {
-  --collapse-motion-duration: 0.32s;
+  --collapse-motion-duration: 0.26s;
   --collapse-motion-ease: cubic-bezier(0.34, 0.1, 0.2, 1);
 }
 
@@ -124,7 +124,6 @@
   position: relative;
   min-height: 0;
   overflow: hidden;
-  transition: height var(--collapse-motion-duration) var(--collapse-motion-ease);
 }
 
 .collapse-motion-preview,
@@ -132,7 +131,6 @@
   grid-area: 1 / 1;
   align-self: start;
   opacity: 1;
-  transition: opacity var(--collapse-motion-duration) var(--collapse-motion-ease);
 }
 
 .collapse-motion-body-transitioning > :is(.collapse-motion-preview, .collapse-motion-content) {
@@ -159,19 +157,12 @@
 
 .virtual-row-shift-row {
   transform: translateY(var(--virtual-row-shift, 0px));
-  transition: transform var(--collapse-motion-duration) var(--collapse-motion-ease);
 }
 
-/*
- * 切换结束要靠 body height 的 transitionend 卸载旧内容，所以过渡不能直接去掉，只能压到
- * 近似瞬间。
- */
+/* 零时长动画也会正常完成并交接，无需额外的结束事件兜底。 */
 @media (prefers-reduced-motion: reduce) {
-  .collapse-motion-body,
-  .collapse-motion-preview,
-  .collapse-motion-content,
-  .virtual-row-shift-row {
-    transition-duration: 0.01ms;
+  :root {
+    --collapse-motion-duration: 0s;
   }
 }
 

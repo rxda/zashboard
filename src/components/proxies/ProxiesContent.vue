@@ -43,7 +43,7 @@ const measureRowHeight = (element: Element, entry: ResizeObserverEntry | undefin
   return box ? Math.round(box.blockSize) : (element as HTMLElement).offsetHeight
 }
 
-// 展开动画期间 overscan 归零,只渲一屏,屏外的行等 transitionend 之后再补。
+// 动画及外层列表交接期间 overscan 归零，屏外的行等交接绘制后再补。
 const collapseTransitioning = useCollapseTransition()
 const overscan = computed(() => (collapseTransitioning?.value ? 0 : 3))
 
