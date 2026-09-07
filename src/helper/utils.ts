@@ -97,60 +97,6 @@ export const getMinCardWidth = (size: PROXY_CARD_SIZE) => {
 
 export const PROXIES_PARENT_CLASS = 'proxies-scrollable-parent'
 
-const getLayoutTop = (el: HTMLElement) => {
-  let top = 0
-  let current: HTMLElement | null = el
-
-  while (current) {
-    top += current.offsetTop
-    current = current.offsetParent as HTMLElement | null
-  }
-
-  return top
-}
-
-export const scrollIntoCenter = (el: HTMLElement, behavior: ScrollBehavior = 'smooth') => {
-  const scrollableParent = findScrollableParent(el)
-
-  if (!scrollableParent) return
-
-  const parentTop = getLayoutTop(scrollableParent)
-  const childTop = getLayoutTop(el)
-
-  // 判断可见性使用布局位置(offsetTop 链),而不是 getBoundingClientRect。
-  // 把整条 offsetParent 链相减,也能覆盖按 provider 分段后卡片与滚动容器
-  // 不再共用 offsetParent 的结构。
-  const relativeTop = childTop - parentTop - scrollableParent.scrollTop
-
-  if (relativeTop >= 0 && relativeTop + el.clientHeight <= scrollableParent.clientHeight) return
-
-  const centerOffset =
-    childTop - parentTop - scrollableParent.clientHeight / 2 + el.clientHeight / 2
-
-  if (behavior === 'smooth') {
-    scrollableParent.scrollTo({
-      top: centerOffset,
-      behavior,
-    })
-  } else {
-    // 直接赋值不会继承容器可能存在的 CSS scroll-behavior,用于展开后的瞬时定位。
-    scrollableParent.scrollTop = centerOffset
-  }
-}
-
-export const findScrollableParent = (el: HTMLElement | null): HTMLElement | null => {
-  const parent = el?.parentElement
-
-  if (
-    parent?.classList.contains(PROXIES_PARENT_CLASS) &&
-    parent.scrollHeight > parent.clientHeight
-  ) {
-    return parent
-  }
-
-  return parent ? findScrollableParent(parent) : null
-}
-
 // 新格式 protocol=http/https 优先,旧格式 http / https 标记参数仍保留兼容,最后兜底当前页面协议。
 const getProtocolFromQuery = (query: URLSearchParams) => {
   const protocol = query.get('protocol')

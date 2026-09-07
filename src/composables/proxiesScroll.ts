@@ -2,10 +2,10 @@ import { ref, type InjectionKey } from 'vue'
 
 /*
  * 虚拟化之后,节点卡片可能不在渲染窗口里 —— 想滚到某个节点得让列表自己去滚,
- * 卡片拿不到自己的 DOM 也就无从滚起。ProxiesContent 提供它,非虚拟化的用法注入不到,
- * 退回原来的 scrollIntoCenter。
+ * 卡片拿不到自己的 DOM 也就无从滚起。由 ProxiesContent 提供。
+ * 定位一律瞬时:动态行高下带动画的滚动会被沿途的测量修正打断,停在半路。
  */
-export type ScrollProxyNodeIntoView = (name: string, behavior: ScrollBehavior) => void
+export type ScrollProxyNodeIntoView = (name: string) => void
 
 export const scrollNodeIntoViewKey: InjectionKey<ScrollProxyNodeIntoView> =
   Symbol('scrollNodeIntoView')

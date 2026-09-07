@@ -1,6 +1,5 @@
 <template>
   <div
-    ref="cardRef"
     :class="cardClass"
     @contextmenu.stop.prevent="handlerLatencyTest"
   >
@@ -51,7 +50,6 @@ import {
   highlightedProxyNode,
   scrollNodeIntoViewKey,
 } from '@/composables/proxiesScroll'
-import { scrollIntoCenter } from '@/helper/utils'
 import { proxyLatencyTest } from '@/assembly/proxies'
 import { getIPv6ByName, getTestUrl, proxyMap } from '@/assembly/proxies'
 import { IPv6test, proxyCardSize, proxySortType, truncateProxyName } from '@/store/settings'
@@ -68,7 +66,6 @@ const props = defineProps<{
   groupName?: string
 }>()
 
-const cardRef = ref()
 const node = computed(() => proxyMap.value[props.name])
 const isLatencyTesting = ref(false)
 const typeFormatter = (type: string) => {
@@ -121,13 +118,8 @@ const handlerLatencyTest = async () => {
     highlightProxyNode(props.name)
     // 等排序后的 DOM 落地再量位置,否则拿到的还是重排前的旧坐标。
     await nextTick()
-
-    if (scrollNodeIntoView) {
-      // 虚拟列表能定位尚未挂载的节点；测速定位是三类自动滚动里唯一需要动画的一类。
-      scrollNodeIntoView(props.name, 'smooth')
-    } else if (cardRef.value) {
-      scrollIntoCenter(cardRef.value, 'smooth')
-    }
+    // 虚拟列表能定位尚未挂载的节点,位置提示交给上面的高亮。
+    scrollNodeIntoView?.(props.name)
   }
 }
 </script>

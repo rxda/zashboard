@@ -9,7 +9,8 @@
  *   2. 延迟表 —— 延迟按测速 url 建全局表并缓存,所以三种写入都必须还能刷新界面:
  *      整体替换 proxyMap(fetchProxies)、乐观改 now(切节点)、往 history 里 push(面板测速)。
  *   第 2 条是最容易悄悄坏掉的:少了一处依赖追踪,界面就停在旧数字上,不报错。
- *   3. 自动滚动 —— 路由往返按卡片锚点恢复；展开定位无动画；测速重排定位有动画。
+ *   3. 自动滚动 —— 路由往返按卡片锚点恢复；展开定位和测速重排定位都无动画
+ *      (动态行高下带动画的滚动会被沿途的测量修正打断,停在半路)。
  */
 import { parseArgs } from 'node:util'
 import { sleep, waitFor } from './lib/cdp.mjs'
@@ -353,11 +354,11 @@ try {
   check(
     '展开组定位激活节点使用瞬时滚动',
     expansionScroll.top > 0 &&
-      expansionScroll.calls.some((call) => call.top > 0 && call.behavior === 'auto'),
+      expansionScroll.calls.some((call) => call.top > 0 && call.behavior !== 'smooth'),
     `scrollTop ${expansionScroll.top}, ${JSON.stringify(expansionScroll.calls)}`,
   )
 
-  // 回到顶部测速 Node-001；999ms 会把它从首屏排到末尾,此时只能用 smooth 跟过去。
+  // 回到顶部测速 Node-001；999ms 会把它从首屏排到末尾,定位同样瞬时,位置提示交给高亮。
   await scrollPage.evaluate(`(() => {
     const scroller = document.querySelector(
       '[data-group-name="${SELECTOR_GROUP}"] .proxies-scrollable-parent'
@@ -384,9 +385,11 @@ try {
 
   await scrollPage.click(testedNode.x, testedNode.y)
 
-  const sawSmoothScroll = await waitFor(
+  const sawScroll = await waitFor(
     () =>
-      scrollPage.evaluate(`window.__proxyScrollCalls.some((call) => call.behavior === 'smooth')`),
+      scrollPage.evaluate(
+        `window.__proxyScrollCalls.some((call) => call.top > 0 && call.behavior !== 'smooth')`,
+      ),
     { timeout: 5000, interval: 100 },
   )
   await sleep(1000)
@@ -404,9 +407,13 @@ try {
     return Boolean(rect && rect.top >= viewport.top && rect.bottom <= viewport.bottom)
   })()`)
 
+  const usedSmooth = await scrollPage.evaluate(
+    `window.__proxyScrollCalls.some((call) => call.behavior === 'smooth')`,
+  )
+
   check(
-    '按延迟排序后平滑滚动到测速节点',
-    sawSmoothScroll !== null && testedNodeVisible,
+    '按延迟排序后瞬时滚动到测速节点',
+    sawScroll !== null && testedNodeVisible && !usedSmooth,
     JSON.stringify(await scrollPage.evaluate(`window.__proxyScrollCalls`)),
   )
 
