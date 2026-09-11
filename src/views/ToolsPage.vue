@@ -84,6 +84,7 @@ const { t } = useI18n()
 
 const activeTab = ref<string>(TOOLS_TAB_TYPE.network)
 
+const tailscaleSupported = computed(() => can('tools'))
 const usbipSupported = computed(() => can('usbip'))
 const openvpnSupported = computed(() => can('openvpn'))
 
@@ -96,7 +97,7 @@ const usbipServers = ref<USBIPServerStatus[]>([])
 // its stream when the active sing-box backend changes.
 watchEffect((onCleanup) => {
   tailscaleEndpoints.value = []
-  if (!getSingboxClient()) return
+  if (!tailscaleSupported.value || !getSingboxClient()) return
 
   const handle = runStream(
     (signal) => serverStream(StartedService.method.subscribeTailscaleStatus, {}, signal),
@@ -129,13 +130,13 @@ watchEffect((onCleanup) => {
 
 const tabOptions = computed<SegmentOption[]>(() => [
   { value: TOOLS_TAB_TYPE.network, label: t(TOOLS_TAB_TYPE.network), icon: WrenchScrewdriverIcon },
-  ...(tailscaleEndpoints.value.length > 0
+  ...(tailscaleSupported.value
     ? [{ value: TOOLS_TAB_TYPE.tailscale, label: t(TOOLS_TAB_TYPE.tailscale), icon: ShareIcon }]
     : []),
-  ...(openvpnSupported.value && openvpnEndpoints.value.length > 0
+  ...(openvpnSupported.value
     ? [{ value: TOOLS_TAB_TYPE.openvpn, label: t(TOOLS_TAB_TYPE.openvpn), icon: ShieldCheckIcon }]
     : []),
-  ...(usbipSupported.value && usbipServers.value.length > 0
+  ...(usbipSupported.value
     ? [{ value: TOOLS_TAB_TYPE.usbip, label: t(TOOLS_TAB_TYPE.usbip), icon: CpuChipIcon }]
     : []),
 ])

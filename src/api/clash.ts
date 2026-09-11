@@ -226,24 +226,12 @@ export const probeClashChannel = async (
 // mihomo 专属(sing-box 官方版的 Clash 兼容 API 不提供)
 // ==========================================================================
 
-// smart 内核的节点权重。是否暴露由数据决定(proxy.type === 'smart'),不走能力表。
-export const fetchSmartWeightsAPI = () => {
-  return axios.get<{
-    message: string
-    weights: Record<string, NodeRank[]>
-  }>(`/group/weights`)
-}
-
 // deprecated
 export const fetchSmartGroupWeightsAPI = (proxyName: string) => {
   return axios.get<{
     message: string
     weights: NodeRank[]
   }>(`/group/${encodeURIComponent(proxyName)}/weights`)
-}
-
-export const flushSmartGroupWeightsAPI = () => {
-  return axios.post(`/cache/smart/flush`)
 }
 
 // 按索引批量切换规则启用状态;sing-box 侧走 toggleRuleDisabledSingBoxAPI。
