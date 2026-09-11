@@ -24,11 +24,7 @@ You can access the online zashboard at the following link:
 
 You can download the zashboard files here:
 
-> All builds include sing-box native API support.
-
-> [!WARNING]
-> Support for sing-box will be removed in the next release. [Learn more about this
-> decision](./docs/sing-box-deprecation.md).
+> This fork retains sing-box native API, Tailscale, Taildrop and Web Terminal support.
 
 release:
 
@@ -57,6 +53,12 @@ To run zashboard via Docker, use the following command:
 ```
 docker run -d -p 80:80 ghcr.io/zephyruso/zashboard:latest
 ```
+
+## Development
+
+With Nix and direnv installed, run `direnv allow` in the project directory. Otherwise,
+enter the same environment with `nix develop`. Then run `pnpm install`, `pnpm generate`,
+`pnpm type-check`, and `pnpm build`.
 
 ## Tips
 

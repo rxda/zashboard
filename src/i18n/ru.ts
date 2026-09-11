@@ -17,9 +17,6 @@ const ru: LANG_MESSAGE = {
   backendType: 'Тип бэкенда',
   clashApi: 'Clash API',
   singboxApi: 'sing-box API',
-  singboxSupportEndingTitle: 'Поддержка sing-box прекращается',
-  singboxSupportEndingMessage: 'zashboard прекратит поддержку sing-box в следующем выпуске.',
-  dontShowAgain: 'Больше не показывать',
   skip: 'Пропустить',
   // Tools
   networkQuality: 'Качество сети',
